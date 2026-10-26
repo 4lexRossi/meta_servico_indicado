@@ -57,22 +57,35 @@ export default function HomePage() {
   const [regBio, setRegBio] = useState('');
 
   // -------------------------------------------------------------
-  // Persistence (LocalStorage)
+  // Backend API Data Fetching & LocalStorage Sync
   // -------------------------------------------------------------
   useEffect(() => {
+    // 1. Sync saved favorites
     try {
       const savedFavs = localStorage.getItem('servico_indicado_favs');
       if (savedFavs) {
         setFavorites(new Set(JSON.parse(savedFavs)));
       }
-      const customPros = localStorage.getItem('servico_indicado_custom_pros');
-      if (customPros) {
-        const parsed = JSON.parse(customPros);
-        setProfessionals([...parsed, ...INITIAL_PROFESSIONALS]);
-      }
     } catch (e) {
-      console.warn('Erro ao carregar dados locais:', e);
+      console.warn('Erro ao carregar favoritos:', e);
     }
+
+    // 2. Fetch from Next.js Backend API
+    async function loadProsFromApi() {
+      try {
+        const res = await fetch('/api/profissionais');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && Array.isArray(json.data)) {
+            setProfessionals(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn('Aviso: usando dados locais de fallback:', err);
+      }
+    }
+
+    loadProsFromApi();
   }, []);
 
   const triggerToast = (msg: string, type: 'normal' | 'success' = 'normal') => {
@@ -136,8 +149,8 @@ export default function HomePage() {
     });
   }, [professionals, viewMode, favorites, selectedPillar, selectedSubcategory, selectedRegion, searchQuery]);
 
-  // Handle Pro Registration
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  // Handle Pro Registration via Backend API
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim() || !regPhone.trim()) return;
 
@@ -150,37 +163,37 @@ export default function HomePage() {
 
     const subcategoryData = CATEGORIES_DATA[pillar]?.subcategories.find(s => s.id === regSubcategory);
 
-    const newPro: Professional = {
-      id: `pro-custom-${Date.now()}`,
+    const payload = {
       name: regName.trim(),
       headline: subcategoryData ? `${subcategoryData.name} Profissional` : 'Prestador Especialista',
       category: pillar,
       subcategory: regSubcategory,
-      rating: 5.0,
-      reviewsCount: 1,
       regions: [regRegion],
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80',
       phone: regPhone.replace(/\D/g, '') || '11999998888',
       priceEstimate: 'Orçamento sem compromisso',
       experienceYears: 5,
       tags: [subcategoryData?.name || 'Especialista', 'Novo Indicado', 'Atendimento Rápido'],
       bio: regBio.trim() || 'Profissional dedicado com foco em qualidade e pontualidade na execução do serviço.',
-      verified: true,
-      badges: ['Cadastro Verificado', 'Novo Indicado'],
-      portfolio: [],
-      reviews: [
-        { name: 'Equipe Serviço Indicado', stars: 5, text: 'Profissional recém-cadastrado na rede de indicações verificadas.' }
-      ]
     };
 
-    const updated = [newPro, ...professionals];
-    setProfessionals(updated);
-
     try {
-      const customOnly = updated.filter(p => p.id.startsWith('pro-custom-'));
-      localStorage.setItem('servico_indicado_custom_pros', JSON.stringify(customOnly));
+      const res = await fetch('/api/profissionais', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const created = json.data;
+        setProfessionals(prev => [created, ...prev]);
+        triggerToast(`🎉 Parabéns, ${created.name}! Cadastro realizado com sucesso no back-end!`, 'success');
+      } else {
+        triggerToast('Erro ao cadastrar profissional.', 'normal');
+      }
     } catch (err) {
-      console.warn('Erro ao salvar no storage:', err);
+      console.error('Erro na requisição ao backend:', err);
+      triggerToast('Erro de conexão com o servidor.', 'normal');
     }
 
     // Reset and close
@@ -193,8 +206,6 @@ export default function HomePage() {
     setSearchQuery('');
     setSelectedRegion('Todas as Regiões');
     setViewMode('all');
-
-    triggerToast(`🎉 Parabéns, ${newPro.name}! Seu cadastro foi adicionado com sucesso!`, 'success');
   };
 
   const clearAllFilters = () => {

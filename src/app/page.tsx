@@ -216,6 +216,21 @@ export default function HomePage() {
     setViewMode('all');
   };
 
+  const scrollToPros = () => {
+    const prosSection = document.getElementById('pros-section');
+    if (prosSection) {
+      // Calculate position with offset compensation for the sticky header
+      const headerOffset = 90;
+      const elementPosition = prosSection.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   // -------------------------------------------------------------
   // Render JSX
   // -------------------------------------------------------------
@@ -280,7 +295,7 @@ export default function HomePage() {
             <button
               onClick={() => {
                 setViewMode(viewMode === 'favorites' ? 'all' : 'favorites');
-                document.getElementById('pros-section')?.scrollIntoView({ behavior: 'smooth' });
+                scrollToPros();
               }}
               className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full font-semibold text-sm transition ${
                 viewMode === 'favorites' 
@@ -336,6 +351,12 @@ export default function HomePage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      scrollToPros();
+                    }
+                  }}
                   placeholder="Ex: encanador, pintura, montador, Carlos..."
                   className="w-full bg-transparent text-slate-800 text-sm sm:text-base outline-none placeholder:text-slate-400"
                 />
@@ -367,10 +388,9 @@ export default function HomePage() {
 
               {/* Submit Search Button */}
               <button
-                onClick={() => {
-                  document.getElementById('pros-section')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl sm:rounded-full bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-teal-700/20 transition shrink-0"
+                type="button"
+                onClick={scrollToPros}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl sm:rounded-full bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-teal-700/20 transition shrink-0 cursor-pointer"
               >
                 <span>Buscar</span>
                 <ChevronRight size={17} />
@@ -391,7 +411,7 @@ export default function HomePage() {
                   key={item.label}
                   onClick={() => {
                     setSearchQuery(item.term);
-                    document.getElementById('pros-section')?.scrollIntoView({ behavior: 'smooth' });
+                    scrollToPros();
                   }}
                   className="bg-white border border-slate-200 hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700 px-3 py-1 rounded-full text-slate-700 font-medium transition"
                 >
@@ -647,18 +667,26 @@ export default function HomePage() {
         </section>
 
         {/* Professionals Section */}
-        <section id="pros-section" className="py-10 bg-slate-50">
+        <section id="pros-section" className="py-10 bg-slate-50 scroll-mt-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             
             {/* Filter Chips & Counter Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-slate-200">
               
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl sm:text-2xl font-extrabold text-slate-900">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-teal-800 bg-teal-100/80 px-2.5 py-0.5 rounded-full">
+                    Área de Indicados
+                  </span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Profissionais Indicados
+                </h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-base sm:text-lg font-bold text-teal-700">
                     {filteredProfessionals.length}
                   </span>
-                  <span className="text-slate-600 font-medium">
+                  <span className="text-slate-600 text-sm font-medium">
                     profissional{filteredProfessionals.length !== 1 ? 'is' : ''} disponíve{filteredProfessionals.length !== 1 ? 'is' : 'l'}
                   </span>
                 </div>

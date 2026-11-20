@@ -7,6 +7,7 @@ frontend:
     build:
       commands:
         - env | grep -e AWS_ >> .env.production || true
+        - env | grep -e DYNAMODB_ >> .env.production || true
         - npm run build
   artifacts:
     baseDirectory: .next

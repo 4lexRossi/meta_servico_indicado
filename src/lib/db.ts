@@ -12,10 +12,10 @@ import { INITIAL_PROFESSIONALS } from '@/data/professionals';
 // 1. AWS DynamoDB Client Setup
 // =============================================================================
 
-const region = process.env.AWS_REGION || 'sa-east-1';
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID || '';
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || '';
-const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'ServicoIndicado_Professionals';
+const region = process.env.APP_REGION || 'sa-east-1';
+const accessKeyId = process.env.APP_ACCESS_KEY_ID || '';
+const secretAccessKey = process.env.APP_SECRET_ACCESS_KEY || '';
+const TABLE_NAME = process.env.APP_DYNAMODB_TABLE_NAME || 'ServicoIndicado_Professionals';
 
 // Determine if valid AWS credentials are provided
 const hasAwsCredentials = Boolean(

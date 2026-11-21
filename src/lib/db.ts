@@ -3,7 +3,8 @@ import {
   DynamoDBDocumentClient, 
   ScanCommand, 
   GetCommand, 
-  PutCommand 
+  PutCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { Professional } from '@/data/types';
 import { INITIAL_PROFESSIONALS } from '@/data/professionals';
@@ -188,4 +189,51 @@ export async function createProfessional(data: Partial<Professional>): Promise<P
   // Always update in-memory cache as well
   inMemoryDb.unshift(newPro);
   return newPro;
+}
+
+/**
+ * Update an existing professional's profile fields (partial update)
+ */
+export async function updateProfessional(
+  id: string,
+  patch: Partial<Professional>
+): Promise<Professional | null> {
+  // Find in memory first (always kept in sync)
+  const idx = inMemoryDb.findIndex((p) => p.id === id);
+  if (idx === -1) return null;
+
+  const updated: Professional = { ...inMemoryDb[idx], ...patch, id };
+  inMemoryDb[idx] = updated;
+
+  if (docClient) {
+    try {
+      // Build a DynamoDB UpdateExpression from the patch keys
+      const fields = Object.keys(patch).filter((k) => k !== 'id');
+      if (fields.length > 0) {
+        const UpdateExpression =
+          'SET ' + fields.map((f) => `#${f} = :${f}`).join(', ');
+        const ExpressionAttributeNames = Object.fromEntries(
+          fields.map((f) => [`#${f}`, f])
+        );
+        const ExpressionAttributeValues = Object.fromEntries(
+          fields.map((f) => [`:${f}`, (patch as Record<string, unknown>)[f]])
+        );
+
+        await docClient.send(
+          new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { id },
+            UpdateExpression,
+            ExpressionAttributeNames,
+            ExpressionAttributeValues,
+          })
+        );
+        console.log(`[DynamoDB] Profissional ${id} atualizado com sucesso.`);
+      }
+    } catch (err) {
+      console.error('⚠️ Falha ao atualizar no DynamoDB:', err);
+    }
+  }
+
+  return updated;
 }

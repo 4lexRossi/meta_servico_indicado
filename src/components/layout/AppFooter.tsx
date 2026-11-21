@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import { PillarId } from '@/data/types';
 
@@ -89,6 +90,11 @@ export function AppFooter({ onPillarSubcategorySelect, onRegisterClick }: AppFoo
         <div>
           <h4 className="font-extrabold text-slate-900 text-sm mb-3">Serviço Indicado</h4>
           <ul className="text-xs space-y-2 text-slate-500">
+            <li>
+              <Link href="/painel" className="font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1">
+                <span>Área do Profissional (Login)</span>
+              </Link>
+            </li>
             <li>
               <button onClick={onRegisterClick} className="hover:text-teal-600">
                 Quero me Cadastrar

@@ -20,6 +20,7 @@ import { CtaBanner } from '@/components/home/CtaBanner';
 // Modals & UI
 import { ProProfileModal } from '@/components/modals/ProProfileModal';
 import { RegisterModal } from '@/components/modals/RegisterModal';
+import { ProfileWizard } from '@/components/modals/ProfileWizard';
 import { Toast } from '@/components/ui/Toast';
 
 export default function HomePage() {
@@ -37,6 +38,7 @@ export default function HomePage() {
   // Modals
   const [selectedProForModal, setSelectedProForModal] = useState<Professional | null>(null);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
+  const [wizardPro, setWizardPro] = useState<Professional | null>(null);
   const [bannerVisible, setBannerVisible] = useState<boolean>(true);
 
   // Toast
@@ -183,7 +185,13 @@ export default function HomePage() {
         const json = await res.json();
         const created = json.data;
         setProfessionals((prev) => [created, ...prev]);
-        triggerToast(`🎉 Parabéns, ${created.name}! Cadastro realizado com sucesso no back-end!`, 'success');
+        setWizardPro(created);
+        try {
+          localStorage.setItem('servico_indicado_my_pro', JSON.stringify(created));
+        } catch (e) {
+          console.warn('Erro ao salvar no localStorage:', e);
+        }
+        triggerToast(`🎉 Cadastro inicial realizado! Vamos personalizar seu perfil.`, 'success');
       } else {
         triggerToast('Erro ao cadastrar profissional.', 'normal');
       }
@@ -195,6 +203,17 @@ export default function HomePage() {
     setRegForm({ name: '', phone: '', region: 'Zona Sul', subcategory: 'encanamento', bio: '' });
     setIsRegisterModalOpen(false);
     clearAllFilters();
+  };
+
+  const handleWizardComplete = (updated: Professional) => {
+    setProfessionals((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    setWizardPro(null);
+    try {
+      localStorage.setItem('servico_indicado_my_pro', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Erro ao atualizar no localStorage:', e);
+    }
+    triggerToast(`🚀 Perfil completo de ${updated.name} publicado com sucesso!`, 'success');
   };
 
   // ---------------------------------------------------------------
@@ -299,6 +318,15 @@ export default function HomePage() {
           }
           onSubmit={handleRegisterSubmit}
           onClose={() => setIsRegisterModalOpen(false)}
+        />
+      )}
+
+      {/* Profile Wizard Modal (completes profile after fast signup) */}
+      {wizardPro && (
+        <ProfileWizard
+          professional={wizardPro}
+          onComplete={handleWizardComplete}
+          onClose={() => setWizardPro(null)}
         />
       )}
 

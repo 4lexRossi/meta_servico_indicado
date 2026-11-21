@@ -3,7 +3,8 @@ import {
   DynamoDBDocumentClient, 
   ScanCommand, 
   GetCommand, 
-  PutCommand 
+  PutCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { Professional } from '@/data/types';
 import { INITIAL_PROFESSIONALS } from '@/data/professionals';
@@ -188,4 +189,82 @@ export async function createProfessional(data: Partial<Professional>): Promise<P
   // Always update in-memory cache as well
   inMemoryDb.unshift(newPro);
   return newPro;
+}
+
+/**
+ * Update an existing professional's profile fields (partial update)
+ */
+export async function updateProfessional(
+  id: string,
+  patch: Partial<Professional>
+): Promise<Professional | null> {
+  // Find in memory first (always kept in sync)
+  const idx = inMemoryDb.findIndex((p) => p.id === id);
+  if (idx === -1) return null;
+
+  const updated: Professional = { ...inMemoryDb[idx], ...patch, id };
+  inMemoryDb[idx] = updated;
+
+  if (docClient) {
+    try {
+      // Build a DynamoDB UpdateExpression from the patch keys
+      const fields = Object.keys(patch).filter((k) => k !== 'id');
+      if (fields.length > 0) {
+        const UpdateExpression =
+          'SET ' + fields.map((f) => `#${f} = :${f}`).join(', ');
+        const ExpressionAttributeNames = Object.fromEntries(
+          fields.map((f) => [`#${f}`, f])
+        );
+        const ExpressionAttributeValues = Object.fromEntries(
+          fields.map((f) => [`:${f}`, (patch as Record<string, unknown>)[f]])
+        );
+
+        await docClient.send(
+          new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { id },
+            UpdateExpression,
+            ExpressionAttributeNames,
+            ExpressionAttributeValues,
+          })
+        );
+        console.log(`[DynamoDB] Profissional ${id} atualizado com sucesso.`);
+      }
+    } catch (err) {
+      console.error('⚠️ Falha ao atualizar no DynamoDB:', err);
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Find professional by phone number
+ */
+export async function getProfessionalByPhone(phone: string): Promise<Professional | null> {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (!cleanPhone) return null;
+
+  // Check in-memory list first
+  const foundInMemory = inMemoryDb.find(p => {
+    const pPhone = p.phone.replace(/\D/g, '');
+    return pPhone === cleanPhone || pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone);
+  });
+  if (foundInMemory) return foundInMemory;
+
+  // If docClient is active, scan all pros
+  if (docClient) {
+    try {
+      const allPros = await getProfessionals();
+      const match = allPros.find(p => {
+        const pPhone = p.phone.replace(/\D/g, '');
+        return pPhone === cleanPhone || pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone);
+      });
+      if (match) return match;
+    } catch (err) {
+      console.warn('⚠️ Erro ao buscar profissional por telefone no DynamoDB:', err);
+    }
+  }
+
+  return null;
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { ShieldCheck, Layers, Heart, UserPlus } from 'lucide-react';
+import Image from 'next/image';
+import { Layers, Heart, UserPlus } from 'lucide-react';
 
 interface AppHeaderProps {
   favoritesCount: number;
@@ -28,8 +29,15 @@ export function AppHeader({
           onClick={onLogoClick}
           className="flex items-center gap-3 text-left group transition"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-600 to-teal-800 text-white flex items-center justify-center shadow-md shadow-teal-700/20 group-hover:scale-105 transition">
-            <ShieldCheck size={22} className="stroke-[2.3]" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-transparent">
+            <Image
+              src="/icon.png"
+              alt="Serviço Indicado"
+              width={50}
+              height={50}
+              className="w-full h-full"
+              unoptimized
+            />
           </div>
           <div>
             <div className="text-xl font-extrabold tracking-tight text-slate-900 leading-tight">

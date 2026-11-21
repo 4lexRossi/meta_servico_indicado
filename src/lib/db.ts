@@ -237,3 +237,34 @@ export async function updateProfessional(
 
   return updated;
 }
+
+/**
+ * Find professional by phone number
+ */
+export async function getProfessionalByPhone(phone: string): Promise<Professional | null> {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (!cleanPhone) return null;
+
+  // Check in-memory list first
+  const foundInMemory = inMemoryDb.find(p => {
+    const pPhone = p.phone.replace(/\D/g, '');
+    return pPhone === cleanPhone || pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone);
+  });
+  if (foundInMemory) return foundInMemory;
+
+  // If docClient is active, scan all pros
+  if (docClient) {
+    try {
+      const allPros = await getProfessionals();
+      const match = allPros.find(p => {
+        const pPhone = p.phone.replace(/\D/g, '');
+        return pPhone === cleanPhone || pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone);
+      });
+      if (match) return match;
+    } catch (err) {
+      console.warn('⚠️ Erro ao buscar profissional por telefone no DynamoDB:', err);
+    }
+  }
+
+  return null;
+}

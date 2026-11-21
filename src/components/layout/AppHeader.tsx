@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { Layers, Heart, UserPlus } from 'lucide-react';
+import Link from 'next/link';
+import { Layers, Heart, UserPlus, Briefcase } from 'lucide-react';
 
 interface AppHeaderProps {
   favoritesCount: number;
@@ -77,12 +78,22 @@ export function AppHeader({
             </span>
           </button>
 
+          <Link
+            href="/painel"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-slate-700 hover:text-teal-700 hover:bg-slate-100 font-semibold text-xs sm:text-sm transition"
+            title="Acessar minha conta e editar perfil"
+          >
+            <Briefcase size={16} className="text-teal-600" />
+            <span className="hidden md:inline">Área do Profissional</span>
+            <span className="md:hidden">Painel</span>
+          </Link>
+
           <button
             onClick={onRegisterClick}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-1.5 border-teal-600 text-teal-700 hover:bg-teal-600 hover:text-white font-bold text-xs sm:text-sm bg-teal-50/60 shadow-xs transition"
           >
             <UserPlus size={16} />
-            <span>Sou Profissional</span>
+            <span>Cadastrar-se</span>
           </button>
         </div>
       </div>

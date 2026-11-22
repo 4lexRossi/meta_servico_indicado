@@ -1,7 +1,9 @@
 'use client';
 
-import { X, UserPlus } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, UserPlus, AlertCircle } from 'lucide-react';
 import { REGIONS_LIST } from '@/data/categories';
+import { CaptchaChallenge } from '@/components/ui/CaptchaChallenge';
 
 interface RegisterFormState {
   name: string;
@@ -14,11 +16,35 @@ interface RegisterFormState {
 interface RegisterModalProps {
   formState: RegisterFormState;
   onFormChange: (field: keyof RegisterFormState, value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent, captcha: { captchaToken: string; captchaAnswer: string }) => void;
   onClose: () => void;
+  errorMessage?: string | null;
+  isSubmitting?: boolean;
 }
 
-export function RegisterModal({ formState, onFormChange, onSubmit, onClose }: RegisterModalProps) {
+export function RegisterModal({
+  formState,
+  onFormChange,
+  onSubmit,
+  onClose,
+  errorMessage,
+  isSubmitting,
+}: RegisterModalProps) {
+  const [captchaData, setCaptchaData] = useState<{ captchaToken: string; captchaAnswer: string }>({
+    captchaToken: '',
+    captchaAnswer: '',
+  });
+  const [localCaptchaError, setLocalCaptchaError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!captchaData.captchaAnswer.trim()) {
+      setLocalCaptchaError('Por favor, responda à verificação de segurança antes de continuar.');
+      return;
+    }
+    setLocalCaptchaError(null);
+    onSubmit(e, captchaData);
+  };
   return (
     <div
       className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
@@ -47,7 +73,14 @@ export function RegisterModal({ formState, onFormChange, onSubmit, onClose }: Re
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        {(errorMessage || localCaptchaError) && (
+          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0" />
+            <span>{errorMessage || localCaptchaError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Nome */}
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1">
@@ -142,8 +175,20 @@ export function RegisterModal({ formState, onFormChange, onSubmit, onClose }: Re
             />
           </div>
 
+          {/* Captcha Anti-bot Protection */}
+          <CaptchaChallenge
+            onVerified={(data) => {
+              setCaptchaData(data);
+              setLocalCaptchaError(null);
+            }}
+            onReset={() => {
+              setCaptchaData({ captchaToken: '', captchaAnswer: '' });
+            }}
+            error={localCaptchaError}
+          />
+
           {/* Terms */}
-          <div className="flex items-start gap-2 pt-2">
+          <div className="flex items-start gap-2 pt-1">
             <input
               type="checkbox"
               required
@@ -157,9 +202,14 @@ export function RegisterModal({ formState, onFormChange, onSubmit, onClose }: Re
 
           <button
             type="submit"
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-extrabold text-sm shadow-lg shadow-teal-700/20 transition"
+            disabled={isSubmitting}
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-extrabold text-sm shadow-lg shadow-teal-700/20 transition disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            Cadastrar Perfil no Serviço Indicado
+            {isSubmitting ? (
+              <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span>Cadastrar Perfil no Serviço Indicado</span>
+            )}
           </button>
         </form>
       </div>

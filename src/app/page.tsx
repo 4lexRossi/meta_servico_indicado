@@ -40,6 +40,8 @@ export default function HomePage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
   const [wizardPro, setWizardPro] = useState<Professional | null>(null);
   const [bannerVisible, setBannerVisible] = useState<boolean>(true);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [isSubmittingRegister, setIsSubmittingRegister] = useState<boolean>(false);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -148,9 +150,15 @@ export default function HomePage() {
   // ---------------------------------------------------------------
   // Register Form Submit
   // ---------------------------------------------------------------
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (
+    e: React.FormEvent,
+    captcha?: { captchaToken: string; captchaAnswer: string }
+  ) => {
     e.preventDefault();
     if (!regForm.name.trim() || !regForm.phone.trim()) return;
+
+    setIsSubmittingRegister(true);
+    setRegisterError(null);
 
     let pillar: PillarId = 'reparos';
     if (['pedreiro', 'pintura', 'gesso', 'piscina', 'telhado', 'serralheria'].includes(regForm.subcategory)) {
@@ -172,6 +180,8 @@ export default function HomePage() {
       experienceYears: 5,
       tags: [subcategoryData?.name || 'Especialista', 'Novo Indicado', 'Atendimento Rápido'],
       bio: regForm.bio.trim() || 'Profissional dedicado com foco em qualidade e pontualidade na execução do serviço.',
+      captchaToken: captcha?.captchaToken,
+      captchaAnswer: captcha?.captchaAnswer,
     };
 
     try {
@@ -181,8 +191,9 @@ export default function HomePage() {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        const json = await res.json();
+      const json = await res.json();
+
+      if (res.ok && json.data) {
         const created = json.data;
         setProfessionals((prev) => [created, ...prev]);
         setWizardPro(created);
@@ -192,17 +203,22 @@ export default function HomePage() {
           console.warn('Erro ao salvar no localStorage:', e);
         }
         triggerToast(`🎉 Cadastro inicial realizado! Vamos personalizar seu perfil.`, 'success');
+        setRegForm({ name: '', phone: '', region: 'Zona Sul', subcategory: 'encanamento', bio: '' });
+        setIsRegisterModalOpen(false);
+        setRegisterError(null);
+        clearAllFilters();
       } else {
-        triggerToast('Erro ao cadastrar profissional.', 'normal');
+        const errMsg = json.error || 'Erro ao cadastrar profissional.';
+        setRegisterError(errMsg);
+        triggerToast(errMsg, 'normal');
       }
     } catch (err) {
       console.error('Erro na requisição ao backend:', err);
+      setRegisterError('Erro de conexão com o servidor.');
       triggerToast('Erro de conexão com o servidor.', 'normal');
+    } finally {
+      setIsSubmittingRegister(false);
     }
-
-    setRegForm({ name: '', phone: '', region: 'Zona Sul', subcategory: 'encanamento', bio: '' });
-    setIsRegisterModalOpen(false);
-    clearAllFilters();
   };
 
   const handleWizardComplete = (updated: Professional) => {

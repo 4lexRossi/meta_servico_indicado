@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfessionalById, updateProfessional } from '@/lib/db';
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,6 +45,22 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Rate limit check: max 30 updates por 10 minutos por IP
+    const rateLimit = checkRateLimit(request, {
+      actionName: 'update_pro',
+      limit: 30,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    const rateLimitHeaders = getRateLimitHeaders(rateLimit);
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { success: false, error: rateLimit.error },
+        { status: 429, headers: { ...corsHeaders, ...rateLimitHeaders } }
+      );
+    }
+
     const { id } = await context.params;
     const body = await request.json();
     const updated = await updateProfessional(id, body);
@@ -51,13 +68,13 @@ export async function PATCH(
     if (!updated) {
       return NextResponse.json(
         { success: false, error: 'Profissional não encontrado' },
-        { status: 404, headers: corsHeaders }
+        { status: 404, headers: { ...corsHeaders, ...rateLimitHeaders } }
       );
     }
 
     return NextResponse.json(
       { success: true, data: updated },
-      { headers: corsHeaders }
+      { headers: { ...corsHeaders, ...rateLimitHeaders } }
     );
   } catch (error) {
     console.error('Error updating professional:', error);

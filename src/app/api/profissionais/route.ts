@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfessionals, createProfessional } from '@/lib/db';
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
+import { verifyCaptcha } from '@/lib/captcha';
 
 // CORS headers to enable direct calls from React Native / Mobile App
 const corsHeaders = {
@@ -46,12 +48,38 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Rate Limit check: max 5 cadastros por 15 minutos por IP
+    const rateLimit = checkRateLimit(request, {
+      actionName: 'register_pro',
+      limit: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    const rateLimitHeaders = getRateLimitHeaders(rateLimit);
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { success: false, error: rateLimit.error },
+        { status: 429, headers: { ...corsHeaders, ...rateLimitHeaders } }
+      );
+    }
+
     const body = await request.json();
 
+    // 2. Captcha verification check
+    const captchaCheck = await verifyCaptcha(body.captchaToken, body.captchaAnswer);
+    if (!captchaCheck.success) {
+      return NextResponse.json(
+        { success: false, error: captchaCheck.error || 'Verificação de segurança falhou.' },
+        { status: 400, headers: { ...corsHeaders, ...rateLimitHeaders } }
+      );
+    }
+
+    // 3. Validation
     if (!body.name || !body.phone) {
       return NextResponse.json(
         { success: false, error: 'Nome e WhatsApp são obrigatórios' },
-        { status: 400, headers: corsHeaders }
+        { status: 400, headers: { ...corsHeaders, ...rateLimitHeaders } }
       );
     }
 
@@ -63,7 +91,7 @@ export async function POST(request: NextRequest) {
         message: 'Profissional cadastrado com sucesso no Serviço Indicado!',
         data: newPro,
       },
-      { status: 201, headers: corsHeaders }
+      { status: 201, headers: { ...corsHeaders, ...rateLimitHeaders } }
     );
   } catch (error) {
     console.error('Error creating professional:', error);

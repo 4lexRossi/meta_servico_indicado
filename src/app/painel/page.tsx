@@ -6,7 +6,8 @@ import Link from 'next/link';
 import {
   User, Phone, Briefcase, MapPin, DollarSign, Tag, Camera,
   Image as ImageIcon, CheckCircle2, Star, Save, LogOut, ExternalLink,
-  Plus, X, AlertCircle, ArrowLeft, Layers, ShieldCheck, Check
+  Plus, X, AlertCircle, ArrowLeft, Layers, ShieldCheck, Check,
+  Menu, ChevronDown
 } from 'lucide-react';
 import { Professional, PillarId, PortfolioItem } from '@/data/types';
 import { CATEGORIES_DATA, REGIONS_LIST } from '@/data/categories';
@@ -29,6 +30,16 @@ const TAG_SUGGESTIONS = [
   'Atendimento Domiciliar',
 ];
 
+const TABS = [
+  { id: 'geral', label: 'Visão Geral & Prévia', desc: 'Como os clientes vêem seu anúncio', icon: Star },
+  { id: 'dados', label: 'Dados & Descrições', desc: 'Nome, WhatsApp, biografia e valores', icon: User },
+  { id: 'servicos', label: 'Serviços & Regiões', desc: 'Especialidades e bairros atendidos', icon: Layers },
+  { id: 'tags', label: 'Diferenciais & Habilidades', desc: 'Badges de garantia, pix, 24h', icon: Tag },
+  { id: 'fotos', label: 'Fotos & Portfólio', desc: 'Avatar e galeria no AWS S3', icon: Camera },
+] as const;
+
+type TabId = (typeof TABS)[number]['id'];
+
 export default function ProfessionalDashboardPage() {
   // -------------------------------------------------------------
   // State: Auth & Session
@@ -39,8 +50,9 @@ export default function ProfessionalDashboardPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Active Tab
-  const [activeTab, setActiveTab] = useState<'geral' | 'dados' | 'servicos' | 'tags' | 'fotos'>('geral');
+  // Active Tab & Mobile Menu
+  const [activeTab, setActiveTab] = useState<TabId>('geral');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Form Edit State
   const [formData, setFormData] = useState<Partial<Professional>>({});
@@ -428,7 +440,7 @@ export default function ProfessionalDashboardPage() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/"
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:text-teal-700 hover:bg-slate-50 font-semibold text-xs transition"
@@ -440,19 +452,19 @@ export default function ProfessionalDashboardPage() {
             <button
               onClick={handleSaveAll}
               disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-teal-700/20 transition disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-teal-700/20 transition disabled:opacity-50 shrink-0"
             >
               {isSaving ? (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <Save size={16} />
               )}
-              <span>Salvar Alterações</span>
+              <span>Salvar<span className="hidden sm:inline"> Alterações</span></span>
             </button>
 
             <button
               onClick={handleLogout}
-              className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition"
+              className="w-9 h-9 rounded-xl border border-slate-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition shrink-0"
               title="Sair da Conta"
             >
               <LogOut size={16} />
@@ -528,21 +540,86 @@ export default function ProfessionalDashboardPage() {
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 border-t border-slate-100 mt-6 pt-4 overflow-x-auto pb-1 scrollbar-none">
-            {[
-              { id: 'geral', label: 'Visão Geral & Prévia', icon: Star },
-              { id: 'dados', label: 'Dados & Descrições', icon: User },
-              { id: 'servicos', label: 'Serviços & Regiões', icon: Layers },
-              { id: 'tags', label: 'Diferenciais & Habilidades', icon: Tag },
-              { id: 'fotos', label: 'Fotos & Portfólio', icon: Camera },
-            ].map((t) => {
+          {/* Mobile Hamburger Menu Selector */}
+          <div className="sm:hidden border-t border-slate-100 mt-5 pt-3">
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 font-bold text-sm shadow-xs transition"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
+                  <Menu size={18} />
+                </div>
+                <div className="text-left">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-teal-600 block leading-none">
+                    Menu de Opções
+                  </span>
+                  <span className="text-sm font-extrabold text-slate-900">
+                    {TABS.find((t) => t.id === activeTab)?.label}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown
+                size={18}
+                className={`text-teal-700 transition duration-200 ${isMobileMenuOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {/* Mobile Dropdown List */}
+            {isMobileMenuOpen && (
+              <div className="mt-2 p-2 rounded-2xl bg-white border border-slate-200 shadow-xl space-y-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                {TABS.map((t) => {
+                  const Icon = t.icon;
+                  const isActive = activeTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(t.id);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl transition text-left ${
+                        isActive
+                          ? 'bg-teal-600 text-white font-extrabold shadow-xs'
+                          : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-teal-700'
+                          }`}
+                        >
+                          <Icon size={16} />
+                        </div>
+                        <div>
+                          <div className={`text-xs font-bold ${isActive ? 'text-white' : 'text-slate-900'}`}>
+                            {t.label}
+                          </div>
+                          <div className={`text-[10px] ${isActive ? 'text-teal-100' : 'text-slate-400'}`}>
+                            {t.desc}
+                          </div>
+                        </div>
+                      </div>
+                      {isActive && <Check size={16} className="stroke-[3]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Navigation Tabs */}
+          <div className="hidden sm:flex items-center gap-2 border-t border-slate-100 mt-6 pt-4 overflow-x-auto pb-1 scrollbar-none">
+            {TABS.map((t) => {
               const Icon = t.icon;
               const isActive = activeTab === t.id;
               return (
                 <button
                   key={t.id}
-                  onClick={() => setActiveTab(t.id as any)}
+                  onClick={() => setActiveTab(t.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition ${
                     isActive
                       ? 'bg-teal-600 text-white shadow-xs'

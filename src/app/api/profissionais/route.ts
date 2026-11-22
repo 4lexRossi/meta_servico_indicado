@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getProfessionals, createProfessional } from '@/lib/db';
 import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
 import { verifyCaptcha } from '@/lib/captcha';
+import { hashPassword } from '@/lib/auth';
 
 // CORS headers to enable direct calls from React Native / Mobile App
 const corsHeaders = {
@@ -83,13 +84,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newPro = await createProfessional(body);
+    const proPayload = {
+      ...body,
+      email: body.email ? String(body.email).trim().toLowerCase() : undefined,
+      passwordHash: body.password ? hashPassword(String(body.password).trim()) : undefined,
+    };
+    delete proPayload.password;
+    delete proPayload.captchaToken;
+    delete proPayload.captchaAnswer;
+
+    const newPro = await createProfessional(proPayload);
+    const { passwordHash: _discard, ...safePro } = newPro;
 
     return NextResponse.json(
       {
         success: true,
         message: 'Profissional cadastrado com sucesso no Serviço Indicado!',
-        data: newPro,
+        data: safePro,
       },
       { status: 201, headers: { ...corsHeaders, ...rateLimitHeaders } }
     );

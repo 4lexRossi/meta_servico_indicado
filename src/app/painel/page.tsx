@@ -7,7 +7,7 @@ import {
   User, Phone, Briefcase, MapPin, DollarSign, Tag, Camera,
   Image as ImageIcon, CheckCircle2, Star, Save, LogOut, ExternalLink,
   Plus, X, AlertCircle, ArrowLeft, Layers, ShieldCheck, Check,
-  Menu, ChevronDown
+  Menu, ChevronDown, Mail, Lock, Eye, EyeOff
 } from 'lucide-react';
 import { Professional, PillarId, PortfolioItem } from '@/data/types';
 import { CATEGORIES_DATA, REGIONS_LIST } from '@/data/categories';
@@ -46,7 +46,9 @@ export default function ProfessionalDashboardPage() {
   // -------------------------------------------------------------
   const [pro, setPro] = useState<Professional | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [loginPhone, setLoginPhone] = useState('');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -56,6 +58,8 @@ export default function ProfessionalDashboardPage() {
 
   // Form Edit State
   const [formData, setFormData] = useState<Partial<Professional>>({});
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [customTag, setCustomTag] = useState('');
   const [portfolioTitle, setPortfolioTitle] = useState('');
 
@@ -104,7 +108,9 @@ export default function ProfessionalDashboardPage() {
     setIsLoggingIn(true);
 
     try {
-      const body = directId ? { id: directId } : { phone: loginPhone };
+      const body = directId
+        ? { id: directId }
+        : { identifier: loginIdentifier, password: loginPassword };
       const res = await fetch('/api/profissionais/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,7 +124,7 @@ export default function ProfessionalDashboardPage() {
         localStorage.setItem('servico_indicado_pro_session', JSON.stringify(json.data));
         triggerToast(`🎉 Bem-vindo ao seu painel, ${json.data.name}!`, 'success');
       } else {
-        setLoginError(json.error || 'Nenhum profissional encontrado com esse WhatsApp.');
+        setLoginError(json.error || 'Nenhum profissional encontrado com esses dados.');
       }
     } catch {
       setLoginError('Erro de conexão ao tentar fazer login.');
@@ -237,10 +243,15 @@ export default function ProfessionalDashboardPage() {
     setIsSaving(true);
 
     try {
+      const payload = {
+        ...formData,
+        ...(newPassword.trim() ? { newPassword: newPassword.trim() } : {}),
+      };
+
       const res = await fetch(`/api/profissionais/${pro.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -248,6 +259,7 @@ export default function ProfessionalDashboardPage() {
         const updated = json.data;
         setPro(updated);
         setFormData(updated);
+        setNewPassword('');
         localStorage.setItem('servico_indicado_pro_session', JSON.stringify(updated));
         triggerToast('✅ Perfil e serviços atualizados com sucesso!', 'success');
       } else {
@@ -319,31 +331,62 @@ export default function ProfessionalDashboardPage() {
             )}
 
             <form onSubmit={(e) => handleLogin(e)} className="space-y-4">
+              {/* Telefone ou E-mail */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Seu WhatsApp cadastrado (com DDD)
+                  WhatsApp ou E-mail cadastrado
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Phone size={16} />
                   </div>
                   <input
-                    type="tel"
+                    type="text"
                     required
-                    value={loginPhone}
-                    onChange={(e) => setLoginPhone(e.target.value)}
-                    placeholder="(11) 98765-4321"
+                    value={loginIdentifier}
+                    onChange={(e) => setLoginIdentifier(e.target.value)}
+                    placeholder="(11) 98765-4321 ou seu@email.com"
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Digite apenas os números ou com máscara.
+                  Digite seu telefone com DDD ou seu endereço de e-mail.
                 </p>
+              </div>
+
+              {/* Senha */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700 block">
+                    Senha de Acesso
+                  </label>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock size={16} />
+                  </div>
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="Sua senha cadastrada"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition"
+                    title={showLoginPassword ? 'Ocultar senha' : 'Ver senha'}
+                  >
+                    {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
 
               <button
                 type="submit"
-                disabled={isLoggingIn || !loginPhone.trim()}
+                disabled={isLoggingIn || !loginIdentifier.trim() || !loginPassword.trim()}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white font-extrabold text-sm shadow-md shadow-teal-700/20 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isLoggingIn ? (
@@ -358,15 +401,22 @@ export default function ProfessionalDashboardPage() {
 
             {/* Quick Demo Access */}
             <div className="mt-8 pt-6 border-t border-slate-100">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-3">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">
                 Ou teste com um perfil demonstrativo:
+              </p>
+              <p className="text-[10px] text-slate-400 text-center mb-3">
+                (Clique para testar com senha padrão: <strong>123456</strong>)
               </p>
               <div className="space-y-2">
                 {INITIAL_PROFESSIONALS.slice(0, 3).map((demo) => (
                   <button
                     key={demo.id}
                     type="button"
-                    onClick={() => handleLogin(undefined, demo.id)}
+                    onClick={() => {
+                      setLoginIdentifier(demo.phone);
+                      setLoginPassword('123456');
+                      handleLogin(undefined, demo.id);
+                    }}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 hover:border-teal-400 hover:bg-teal-50/50 flex items-center gap-3 transition text-left group"
                   >
                     <Image
@@ -382,11 +432,11 @@ export default function ProfessionalDashboardPage() {
                         {demo.name}
                       </div>
                       <div className="text-[10px] text-slate-500 truncate">
-                        {demo.headline}
+                        Tel: {demo.phone} &bull; Senha: 123456
                       </div>
                     </div>
                     <span className="text-[10px] font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
-                      Acessar
+                      Entrar
                     </span>
                   </button>
                 ))}
@@ -772,6 +822,54 @@ export default function ProfessionalDashboardPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">Os clientes clicam e abrem conversa diretamente com você.</p>
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  E-mail para Acesso ao Painel
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Mail size={16} />
+                  </div>
+                  <input
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={(e) => updateField('email', e.target.value)}
+                    placeholder="seu@email.com"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Usado para fazer login com telefone ou e-mail.</p>
+              </div>
+
+              {/* Nova Senha */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Alterar Senha de Acesso (opcional)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock size={16} />
+                  </div>
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Deixe em branco para manter a atual"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition"
+                    title={showNewPassword ? 'Ocultar senha' : 'Ver senha'}
+                  >
+                    {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Mínimo 6 dígitos caso queira alterar sua senha.</p>
               </div>
 
               {/* Headline */}

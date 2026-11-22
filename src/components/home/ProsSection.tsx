@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, Search, X } from 'lucide-react';
+import { Heart, Search, X, RotateCcw } from 'lucide-react';
 import { CATEGORIES_DATA } from '@/data/categories';
 import { PillarId, Professional } from '@/data/types';
 import { ProfessionalCard } from '@/components/cards/ProfessionalCard';
@@ -40,6 +40,14 @@ export function ProsSection({
   onClearSearch,
   onClearAll,
 }: ProsSectionProps) {
+  const hasActiveFilters = Boolean(
+    selectedPillar ||
+    selectedSubcategory ||
+    (selectedRegion && selectedRegion !== 'Todas as Regiões') ||
+    (searchQuery && searchQuery.trim() !== '') ||
+    viewMode === 'favorites'
+  );
+
   return (
     <section id="pros-section" className="py-10 bg-slate-50 scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -99,28 +107,46 @@ export function ProsSection({
             </div>
           </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-slate-200/80 p-1 rounded-full self-start sm:self-auto">
+          {/* View Mode Toggle & Clear All Filters */}
+          <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+            <div className="flex items-center bg-slate-200/80 p-1 rounded-full self-start sm:self-auto">
+              <button
+                onClick={() => onViewModeChange('all')}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                  viewMode === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => onViewModeChange('favorites')}
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                  viewMode === 'favorites'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Heart size={13} className={favorites.size > 0 ? 'text-rose-500 fill-rose-500' : ''} />
+                <span>Meus Salvos ({favorites.size})</span>
+              </button>
+            </div>
+
+            {/* Clear All Filters Button */}
             <button
-              onClick={() => onViewModeChange('all')}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
-                viewMode === 'all'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              type="button"
+              onClick={onClearAll}
+              disabled={!hasActiveFilters}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full transition ${
+                hasActiveFilters
+                  ? 'text-teal-700 hover:text-teal-900 hover:bg-teal-50 border border-teal-200 cursor-pointer shadow-2xs'
+                  : 'text-slate-400 border border-slate-200 opacity-40 cursor-not-allowed pointer-events-none'
               }`}
+              title={hasActiveFilters ? 'Limpar todos os filtros ativos' : 'Nenhum filtro ativo no momento'}
             >
-              Todos
-            </button>
-            <button
-              onClick={() => onViewModeChange('favorites')}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition ${
-                viewMode === 'favorites'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Heart size={13} className={favorites.size > 0 ? 'text-rose-500 fill-rose-500' : ''} />
-              <span>Meus Salvos ({favorites.size})</span>
+              <RotateCcw size={12} />
+              <span>Limpar todos os filtros</span>
             </button>
           </div>
         </div>

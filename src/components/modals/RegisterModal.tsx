@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, UserPlus, AlertCircle } from 'lucide-react';
+import { X, UserPlus, AlertCircle, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { REGIONS_LIST } from '@/data/categories';
 import { CaptchaChallenge } from '@/components/ui/CaptchaChallenge';
 
 interface RegisterFormState {
   name: string;
   phone: string;
+  email?: string;
+  password?: string;
   region: string;
   subcategory: string;
   bio: string;
@@ -30,6 +32,7 @@ export function RegisterModal({
   errorMessage,
   isSubmitting,
 }: RegisterModalProps) {
+  const [showPassword, setShowPassword] = useState(false);
   const [captchaData, setCaptchaData] = useState<{ captchaToken: string; captchaAnswer: string }>({
     captchaToken: '',
     captchaAnswer: '',
@@ -124,6 +127,54 @@ export function RegisterModal({
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Email + Password */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                E-mail (opcional)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Mail size={15} />
+                </div>
+                <input
+                  type="email"
+                  value={formState.email || ''}
+                  onChange={(e) => onFormChange('email', e.target.value)}
+                  placeholder="seu@email.com"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Senha de Acesso ao Painel
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Lock size={15} />
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={formState.password || ''}
+                  onChange={(e) => onFormChange('password', e.target.value)}
+                  placeholder="Mínimo 6 dígitos"
+                  className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition"
+                  title={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
           </div>
 

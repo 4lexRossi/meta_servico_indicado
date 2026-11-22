@@ -24,8 +24,38 @@ export function CategoriesSection({
   const pillars: PillarId[] = ['reparos', 'reforma', 'montagem'];
 
   const handlePillarClick = (id: PillarId) => {
-    onPillarSelect(selectedPillar === id ? null : id);
+    const isDeselecting = selectedPillar === id;
+    onPillarSelect(isDeselecting ? null : id);
     onSubcategorySelect(null);
+
+    if (!isDeselecting) {
+      setTimeout(() => {
+        const drilldownEl = document.getElementById('subcategories-drilldown');
+        if (drilldownEl) {
+          const headerOffset = 85;
+          const elementPosition = drilldownEl.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+        }
+      }, 80);
+    }
+  };
+
+  const handleSubcategoryClick = (subId: string) => {
+    const isDeselecting = selectedSubcategory === subId;
+    onSubcategorySelect(isDeselecting ? null : subId);
+
+    if (!isDeselecting) {
+      setTimeout(() => {
+        const prosEl = document.getElementById('pros-section');
+        if (prosEl) {
+          const headerOffset = 85;
+          const elementPosition = prosEl.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+        }
+      }, 80);
+    }
   };
 
   return (
@@ -97,7 +127,10 @@ export function CategoriesSection({
 
         {/* Level 2: Subcategory Drill-Down */}
         {selectedPillar && (
-          <div className="mt-8 p-6 sm:p-8 rounded-3xl bg-slate-50 border-2 border-teal-300 shadow-md animate-in fade-in slide-in-from-top-4 duration-300">
+          <div
+            id="subcategories-drilldown"
+            className="mt-8 p-6 sm:p-8 rounded-3xl bg-slate-50 border-2 border-teal-300 shadow-md animate-in fade-in slide-in-from-top-4 duration-300 scroll-mt-24"
+          >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
               <div>
                 <h3 className="text-lg sm:text-xl font-extrabold text-slate-900">
@@ -126,7 +159,7 @@ export function CategoriesSection({
                     subcategory={sub}
                     proCount={proCount}
                     isSelected={selectedSubcategory === sub.id}
-                    onClick={(id) => onSubcategorySelect(selectedSubcategory === id ? null : id)}
+                    onClick={handleSubcategoryClick}
                   />
                 );
               })}

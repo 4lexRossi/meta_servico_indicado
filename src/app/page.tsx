@@ -129,6 +129,17 @@ export default function HomePage() {
     if (viewMode === 'favorites') setViewMode('all');
   };
 
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    // When the user writes something in the search input, clear previous filters
+    if (value.trim().length > 0) {
+      setSelectedPillar(null);
+      setSelectedSubcategory(null);
+      setSelectedRegion('Todas as Regiões');
+      if (viewMode === 'favorites') setViewMode('all');
+    }
+  };
+
   const scrollToPros = () => {
     const prosSection = document.getElementById('pros-section');
     if (prosSection) {
@@ -279,7 +290,7 @@ export default function HomePage() {
         <HeroSection
           searchQuery={searchQuery}
           selectedRegion={selectedRegion}
-          onSearchChange={setSearchQuery}
+          onSearchChange={handleSearchChange}
           onRegionChange={setSelectedRegion}
           onSearch={scrollToPros}
         />

@@ -116,6 +116,19 @@ export default function HomePage() {
     setViewMode('all');
   };
 
+  const handlePillarSelect = (pillar: PillarId | null) => {
+    setSelectedPillar(pillar);
+    setSelectedSubcategory(null);
+    setSearchQuery('');
+    if (viewMode === 'favorites') setViewMode('all');
+  };
+
+  const handleSubcategorySelect = (subcategory: string | null) => {
+    setSelectedSubcategory(subcategory);
+    setSearchQuery('');
+    if (viewMode === 'favorites') setViewMode('all');
+  };
+
   const scrollToPros = () => {
     const prosSection = document.getElementById('pros-section');
     if (prosSection) {
@@ -276,8 +289,8 @@ export default function HomePage() {
           selectedPillar={selectedPillar}
           selectedSubcategory={selectedSubcategory}
           professionals={professionals}
-          onPillarSelect={setSelectedPillar}
-          onSubcategorySelect={setSelectedSubcategory}
+          onPillarSelect={handlePillarSelect}
+          onSubcategorySelect={handleSubcategorySelect}
         />
 
         {/* Professionals Grid */}
@@ -312,6 +325,8 @@ export default function HomePage() {
         onPillarSubcategorySelect={(pillar, subcategory) => {
           setSelectedPillar(pillar);
           setSelectedSubcategory(subcategory);
+          setSearchQuery('');
+          if (viewMode === 'favorites') setViewMode('all');
           scrollToPros();
         }}
         onRegisterClick={() => setIsRegisterModalOpen(true)}

@@ -268,3 +268,39 @@ export async function getProfessionalByPhone(phone: string): Promise<Professiona
 
   return null;
 }
+
+/**
+ * Find professional by email, phone or ID
+ */
+export async function getProfessionalByEmailOrPhone(identifier: string): Promise<Professional | null> {
+  const trimmed = identifier.trim();
+  if (!trimmed) return null;
+
+  const isEmail = trimmed.includes('@');
+  const cleanPhone = trimmed.replace(/\D/g, '');
+
+  const matchesPro = (p: Professional) => {
+    if (p.id === trimmed) return true;
+    if (isEmail && p.email && p.email.toLowerCase() === trimmed.toLowerCase()) return true;
+    if (cleanPhone.length >= 8) {
+      const pPhone = p.phone.replace(/\D/g, '');
+      if (pPhone === cleanPhone || pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone)) return true;
+    }
+    return false;
+  };
+
+  const foundInMemory = inMemoryDb.find(matchesPro);
+  if (foundInMemory) return foundInMemory;
+
+  if (docClient) {
+    try {
+      const allPros = await getProfessionals();
+      const match = allPros.find(matchesPro);
+      if (match) return match;
+    } catch (err) {
+      console.warn('⚠️ Erro ao buscar profissional por email/telefone no DynamoDB:', err);
+    }
+  }
+
+  return null;
+}

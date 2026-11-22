@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfessionalById, updateProfessional } from '@/lib/db';
 import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
+import { hashPassword } from '@/lib/auth';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,7 +64,15 @@ export async function PATCH(
 
     const { id } = await context.params;
     const body = await request.json();
-    const updated = await updateProfessional(id, body);
+    const patchPayload = { ...body };
+
+    if (patchPayload.newPassword) {
+      patchPayload.passwordHash = hashPassword(String(patchPayload.newPassword).trim());
+      delete patchPayload.newPassword;
+    }
+    delete patchPayload.password;
+
+    const updated = await updateProfessional(id, patchPayload);
 
     if (!updated) {
       return NextResponse.json(
@@ -84,4 +93,3 @@ export async function PATCH(
     );
   }
 }
-

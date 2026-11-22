@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProfessionalByPhone, getProfessionalById, getProfessionals } from '@/lib/db';
+import { getProfessionalByEmailOrPhone, getProfessionalById } from '@/lib/db';
 import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
+import { verifyPassword } from '@/lib/auth';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,47 +32,68 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const phone = body.phone ? String(body.phone).trim() : '';
+    const identifier = String(body.identifier || body.phone || body.email || '').trim();
+    const password = String(body.password || '').trim();
     const id = body.id ? String(body.id).trim() : '';
 
-    if (!phone && !id) {
-      return NextResponse.json(
-        { success: false, error: 'Informe o WhatsApp ou ID do profissional.' },
-        { status: 400, headers: corsHeaders }
-      );
-    }
+      if (!identifier && !id) {
+        return NextResponse.json(
+          { success: false, error: 'Informe seu WhatsApp ou E-mail cadastrado.' },
+          { status: 400, headers: corsHeaders }
+        );
+      }
 
-    let pro = null;
-    if (id) {
-      pro = await getProfessionalById(id);
-    } else if (phone) {
-      pro = await getProfessionalByPhone(phone);
-    }
+      let pro = null;
+      if (id) {
+        pro = await getProfessionalById(id);
+      } else if (identifier) {
+        pro = await getProfessionalByEmailOrPhone(identifier);
+      }
 
-    if (!pro) {
-      // Return list of available demo pros or clean not found
+      if (!pro) {
+        return NextResponse.json(
+          {
+            success: false,
+          error: 'Nenhum profissional encontrado com esse WhatsApp ou E-mail. Verifique os dados digitados ou faça o cadastro inicial.'
+          },
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      // Verify password (demo click bypass without password is only allowed if clicking demo with ID)
+      if (!id || password) {
+        if (!password) {
+          return NextResponse.json(
+            { success: false, error: 'Por favor, digite a sua senha de acesso.' },
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        const isValid = verifyPassword(password, pro.passwordHash);
+        if (!isValid) {
+          return NextResponse.json(
+            { success: false, error: 'Senha incorreta. Verifique sua senha e tente novamente.' },
+            { status: 401, headers: corsHeaders }
+          );
+        }
+      }
+
+      // Strip passwordHash before returning to frontend
+      const { passwordHash: _discard, ...safePro } = pro;
+
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Nenhum profissional encontrado com esse número de WhatsApp. Verifique o número digitado ou faça o cadastro inicial.' 
+        {
+          success: true,
+          message: `Bem-vindo de volta, ${pro.name}!`,
+          data: safePro,
         },
-        { status: 404, headers: corsHeaders }
+        { status: 200, headers: corsHeaders }
+      );
+    } catch (error) {
+      console.error('Erro no login do profissional:', error);
+      return NextResponse.json(
+        { success: false, error: 'Falha ao processar login' },
+        { status: 500, headers: corsHeaders }
       );
     }
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: `Bem-vindo de volta, ${pro.name}!`,
-        data: pro,
-      },
-      { status: 200, headers: corsHeaders }
-    );
-  } catch (error) {
-    console.error('Erro no login do profissional:', error);
-    return NextResponse.json(
-      { success: false, error: 'Falha ao processar login' },
-      { status: 500, headers: corsHeaders }
-    );
   }
-}

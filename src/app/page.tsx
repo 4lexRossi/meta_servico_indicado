@@ -51,6 +51,8 @@ export default function HomePage() {
   const [regForm, setRegForm] = useState({
     name: '',
     phone: '',
+    email: '',
+    password: '',
     region: 'Zona Sul',
     subcategory: 'encanamento',
     bio: '',
@@ -176,6 +178,8 @@ export default function HomePage() {
       subcategory: regForm.subcategory,
       regions: [regForm.region],
       phone: regForm.phone.replace(/\D/g, '') || '11999998888',
+      email: regForm.email.trim() || undefined,
+      password: regForm.password.trim() || undefined,
       priceEstimate: 'Orçamento sem compromisso',
       experienceYears: 5,
       tags: [subcategoryData?.name || 'Especialista', 'Novo Indicado', 'Atendimento Rápido'],
@@ -200,10 +204,10 @@ export default function HomePage() {
         try {
           localStorage.setItem('servico_indicado_my_pro', JSON.stringify(created));
         } catch (e) {
-          console.warn('Erro ao salvar no localStorage:', e);
+          console.warn('Erro ao salvar dados:', e);
         }
         triggerToast(`🎉 Cadastro inicial realizado! Vamos personalizar seu perfil.`, 'success');
-        setRegForm({ name: '', phone: '', region: 'Zona Sul', subcategory: 'encanamento', bio: '' });
+        setRegForm({ name: '', phone: '', email: '', password: '', region: 'Zona Sul', subcategory: 'encanamento', bio: '' });
         setIsRegisterModalOpen(false);
         setRegisterError(null);
         clearAllFilters();
@@ -213,7 +217,7 @@ export default function HomePage() {
         triggerToast(errMsg, 'normal');
       }
     } catch (err) {
-      console.error('Erro na requisição ao backend:', err);
+      console.error('Erro na requisição:', err);
       setRegisterError('Erro de conexão com o servidor.');
       triggerToast('Erro de conexão com o servidor.', 'normal');
     } finally {

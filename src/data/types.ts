@@ -39,6 +39,8 @@ export interface Professional {
   regions: string[];
   avatar: string;
   phone: string;
+  email?: string;
+  passwordHash?: string;
   priceEstimate: string;
   experienceYears: number;
   tags: string[];

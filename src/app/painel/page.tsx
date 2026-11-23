@@ -13,6 +13,7 @@ import { Professional, PillarId, PortfolioItem } from '@/data/types';
 import { CATEGORIES_DATA, REGIONS_LIST } from '@/data/categories';
 import { INITIAL_PROFESSIONALS } from '@/data/professionals';
 import { Toast } from '@/components/ui/Toast';
+import { formatPhone } from '@/lib/phone';
 
 const TAG_SUGGESTIONS = [
   'Atendimento Rápido',
@@ -842,12 +843,14 @@ export default function ProfessionalDashboardPage() {
                   WhatsApp para Contato Direto
                 </label>
                 <input
-                  type="text"
-                  value={formData.phone || ''}
-                  onChange={(e) => updateField('phone', e.target.value)}
+                  type="tel"
+                  maxLength={15}
+                  value={formatPhone(formData.phone || '')}
+                  onChange={(e) => updateField('phone', formatPhone(e.target.value))}
+                  placeholder="(00) 00000-0000"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">Os clientes clicam e abrem conversa diretamente com você.</p>
+                <p className="text-[11px] text-slate-400 mt-1">Apenas números. Formato: (00) 00000-0000</p>
               </div>
 
               {/* Email */}

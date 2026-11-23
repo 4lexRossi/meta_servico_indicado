@@ -3,6 +3,7 @@ import { getProfessionals, createProfessional } from '@/lib/db';
 import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
 import { verifyCaptcha } from '@/lib/captcha';
 import { hashPassword } from '@/lib/auth';
+import { validatePhone } from '@/lib/phone';
 
 // CORS headers to enable direct calls from React Native / Mobile App
 const corsHeaders = {
@@ -80,6 +81,14 @@ export async function POST(request: NextRequest) {
     if (!body.name || !body.phone) {
       return NextResponse.json(
         { success: false, error: 'Nome e WhatsApp são obrigatórios' },
+        { status: 400, headers: { ...corsHeaders, ...rateLimitHeaders } }
+      );
+    }
+
+    const phoneCheck = validatePhone(body.phone);
+    if (!phoneCheck.isValid) {
+      return NextResponse.json(
+        { success: false, error: phoneCheck.error || 'Número de WhatsApp inválido' },
         { status: 400, headers: { ...corsHeaders, ...rateLimitHeaders } }
       );
     }

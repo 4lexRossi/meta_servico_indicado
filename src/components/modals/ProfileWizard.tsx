@@ -284,6 +284,10 @@ function StepHabilidades({
 // ─────────────────────────────────────────────────────────────
 // Step 4 — Avatar & Portfolio
 // ─────────────────────────────────────────────────────────────
+const AVATAR_MAX_SIZE = 2 * 1024 * 1024; // 2 MB
+const PORTFOLIO_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_PORTFOLIO_ITEMS = 10;
+
 function StepFotos({
   professional, data, onChange,
 }: { professional: Professional; data: WizardData; onChange: (patch: Partial<WizardData>) => void }) {
@@ -292,42 +296,66 @@ function StepFotos({
   const avatarRef = useRef<HTMLInputElement>(null);
   const portfolioRef = useRef<HTMLInputElement>(null);
 
-  async function uploadFile(file: File): Promise<string> {
+  async function uploadFile(file: File, type: 'avatar' | 'portfolio' = 'portfolio'): Promise<string> {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('type', type);
     const res = await fetch('/api/upload', { method: 'POST', body: formData });
-    if (!res.ok) throw new Error('Upload failed');
     const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || 'Falha no upload');
+    }
     return json.url as string;
   }
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > AVATAR_MAX_SIZE) {
+      alert('A foto de perfil excede o limite máximo permitido de 2 MB.');
+      e.target.value = '';
+      return;
+    }
+
     setUploading(true);
     try {
-      const url = await uploadFile(file);
+      const url = await uploadFile(file, 'avatar');
       onChange({ avatarUrl: url });
-    } catch {
-      alert('Erro ao enviar foto. Tente novamente.');
+    } catch (err: any) {
+      alert(err.message || 'Erro ao enviar foto. Tente novamente.');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
   const handlePortfolioChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (data.portfolioItems.length >= MAX_PORTFOLIO_ITEMS) {
+      alert(`Você já atingiu o limite máximo de ${MAX_PORTFOLIO_ITEMS} fotos no portfólio.`);
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > PORTFOLIO_MAX_SIZE) {
+      alert('A imagem do portfólio excede o limite máximo permitido de 5 MB.');
+      e.target.value = '';
+      return;
+    }
+
     setUploading(true);
     try {
-      const url = await uploadFile(file);
+      const url = await uploadFile(file, 'portfolio');
       const title = portfolioTitle.trim() || file.name.replace(/\.[^.]+$/, '');
       onChange({
         portfolioItems: [...data.portfolioItems, { title, url }],
       });
       setPortfolioTitle('');
-    } catch {
-      alert('Erro ao enviar foto. Tente novamente.');
+    } catch (err: any) {
+      alert(err.message || 'Erro ao enviar foto. Tente novamente.');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -371,7 +399,7 @@ function StepFotos({
               <Camera size={15} />
               {data.avatarUrl ? 'Trocar foto' : 'Enviar foto'}
             </button>
-            <p className="text-[11px] text-slate-400 mt-1.5">JPG ou PNG, máx. 5 MB</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">JPG, PNG ou WEBP, máx. 2 MB</p>
           </div>
         </div>
         <input
@@ -387,7 +415,7 @@ function StepFotos({
       <div>
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-bold text-slate-700">Portfólio de Trabalhos</p>
-          <span className="text-[11px] text-slate-400">{data.portfolioItems.length}/6 fotos</span>
+          <span className="text-[11px] text-slate-400">{data.portfolioItems.length}/{MAX_PORTFOLIO_ITEMS} fotos</span>
         </div>
 
         {data.portfolioItems.length > 0 && (
@@ -418,7 +446,7 @@ function StepFotos({
           </div>
         )}
 
-        {data.portfolioItems.length < 6 && (
+        {data.portfolioItems.length < MAX_PORTFOLIO_ITEMS && (
           <div className="space-y-2">
             <input
               type="text"
@@ -436,6 +464,7 @@ function StepFotos({
               <ImageIcon size={15} />
               {uploading ? 'Enviando...' : 'Adicionar foto ao portfólio'}
             </button>
+            <p className="text-[11px] text-slate-400 text-center">Formatos aceitos: JPG, PNG, WEBP (máx. 5 MB cada, até {MAX_PORTFOLIO_ITEMS} fotos)</p>
           </div>
         )}
         <input

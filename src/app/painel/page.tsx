@@ -179,17 +179,24 @@ export default function ProfessionalDashboardPage() {
   };
 
   // -------------------------------------------------------------
-  // S3 File Upload Handlers
+  // S3 File Upload Handlers (Standard Web Limits: 2MB Avatar, 5MB Portfolio, Max 10 Photos)
   // -------------------------------------------------------------
-  const uploadToS3 = async (file: File): Promise<string> => {
+  const AVATAR_MAX_SIZE = 2 * 1024 * 1024; // 2 MB
+  const PORTFOLIO_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+  const MAX_PORTFOLIO_PHOTOS = 10;
+
+  const uploadToS3 = async (file: File, type: 'avatar' | 'portfolio' = 'portfolio'): Promise<string> => {
     const uploadForm = new FormData();
     uploadForm.append('file', file);
+    uploadForm.append('type', type);
     const res = await fetch('/api/upload', {
       method: 'POST',
       body: uploadForm,
     });
-    if (!res.ok) throw new Error('Falha no upload para o S3');
     const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || 'Falha no upload para o S3');
+    }
     return json.url;
   };
 
@@ -197,15 +204,22 @@ export default function ProfessionalDashboardPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > AVATAR_MAX_SIZE) {
+      triggerToast('A foto de perfil excede o limite máximo permitido de 2 MB.', 'normal');
+      e.target.value = '';
+      return;
+    }
+
     setIsUploadingAvatar(true);
     try {
-      const url = await uploadToS3(file);
+      const url = await uploadToS3(file, 'avatar');
       updateField('avatar', url);
       triggerToast('Foto de perfil atualizada no S3!', 'success');
-    } catch {
-      triggerToast('Erro ao enviar imagem. Verifique o arquivo e tente novamente.', 'normal');
+    } catch (err: any) {
+      triggerToast(err.message || 'Erro ao enviar imagem. Verifique o arquivo e tente novamente.', 'normal');
     } finally {
       setIsUploadingAvatar(false);
+      e.target.value = '';
     }
   };
 
@@ -213,16 +227,28 @@ export default function ProfessionalDashboardPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const currentList = (formData.portfolio || []) as PortfolioItem[];
+    if (currentList.length >= MAX_PORTFOLIO_PHOTOS) {
+      triggerToast(`Limite máximo de ${MAX_PORTFOLIO_PHOTOS} fotos atingido no portfólio.`, 'normal');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > PORTFOLIO_MAX_SIZE) {
+      triggerToast('A foto do portfólio excede o limite máximo permitido de 5 MB.', 'normal');
+      e.target.value = '';
+      return;
+    }
+
     setIsUploadingPortfolio(true);
     try {
-      const url = await uploadToS3(file);
+      const url = await uploadToS3(file, 'portfolio');
       const title = portfolioTitle.trim() || file.name.replace(/\.[^/.]+$/, '');
-      const currentList = (formData.portfolio || []) as PortfolioItem[];
       updateField('portfolio', [...currentList, { title, url }]);
       setPortfolioTitle('');
       triggerToast('Foto adicionada ao portfólio no S3!', 'success');
-    } catch {
-      triggerToast('Erro ao enviar imagem do portfólio.', 'normal');
+    } catch (err: any) {
+      triggerToast(err.message || 'Erro ao enviar imagem do portfólio.', 'normal');
     } finally {
       setIsUploadingPortfolio(false);
       e.target.value = '';
@@ -1212,7 +1238,7 @@ export default function ProfessionalDashboardPage() {
                     {isUploadingAvatar ? 'Enviando para o S3...' : 'Fazer Upload de Nova Foto'}
                   </button>
                   <p className="text-[11px] text-slate-400">
-                    Formatos aceitos: JPG, PNG, WEBP. Armazenamento Standard em nuvem AWS S3.
+                    Formatos aceitos: JPG, PNG, WEBP (máx. 2 MB). Armazenamento em nuvem AWS S3.
                   </p>
                 </div>
                 <input
@@ -1233,14 +1259,14 @@ export default function ProfessionalDashboardPage() {
                     Galeria de Trabalhos Realizados
                   </h4>
                   <p className="text-xs text-slate-500">
-                    {(formData.portfolio || []).length} de 10 fotos enviadas
+                    {(formData.portfolio || []).length} de {MAX_PORTFOLIO_PHOTOS} fotos enviadas (máx. 5 MB por foto)
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => portfolioInputRef.current?.click()}
-                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= 10}
+                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= MAX_PORTFOLIO_PHOTOS}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-xs transition disabled:opacity-50"
                 >
                   <Plus size={16} />
@@ -1255,12 +1281,13 @@ export default function ProfessionalDashboardPage() {
                   value={portfolioTitle}
                   onChange={(e) => setPortfolioTitle(e.target.value)}
                   placeholder="Legenda da próxima foto (ex: Reforma completa de banheiro, 2024)"
-                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm outline-none focus:border-teal-500"
+                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= MAX_PORTFOLIO_PHOTOS}
+                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm outline-none focus:border-teal-500 disabled:bg-slate-100 disabled:opacity-60"
                 />
                 <button
                   type="button"
                   onClick={() => portfolioInputRef.current?.click()}
-                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= 10}
+                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= MAX_PORTFOLIO_PHOTOS}
                   className="px-4 py-2.5 rounded-xl border border-teal-500 bg-teal-50 text-teal-700 font-bold text-xs transition hover:bg-teal-100 disabled:opacity-50"
                 >
                   {isUploadingPortfolio ? 'Enviando...' : 'Escolher Imagem'}

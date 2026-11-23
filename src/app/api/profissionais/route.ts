@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { getProfessionals, createProfessional } from '@/lib/db';
 import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
 import { verifyCaptcha } from '@/lib/captcha';
 import { hashPassword } from '@/lib/auth';
 import { validatePhone } from '@/lib/phone';
+import { sendVerificationEmail } from '@/lib/ses';
 
 // CORS headers to enable direct calls from React Native / Mobile App
 const corsHeaders = {
@@ -93,9 +95,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 4. Email validation & Verification token setup
+    const rawEmail = body.email ? String(body.email).trim().toLowerCase() : undefined;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (rawEmail && !emailRegex.test(rawEmail)) {
+      return NextResponse.json(
+        { success: false, error: 'Por favor, informe um endereço de e-mail válido (ex: seu@email.com).' },
+        { status: 400, headers: { ...corsHeaders, ...rateLimitHeaders } }
+      );
+    }
+
+    let verificationToken: string | undefined;
+    let verificationExpires: string | undefined;
+
+    if (rawEmail) {
+      verificationToken = crypto.randomBytes(32).toString('hex');
+      verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    }
+
     const proPayload = {
       ...body,
-      email: body.email ? String(body.email).trim().toLowerCase() : undefined,
+      email: rawEmail,
+      emailVerified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationExpires,
       passwordHash: body.password ? hashPassword(String(body.password).trim()) : undefined,
     };
     delete proPayload.password;
@@ -105,10 +128,31 @@ export async function POST(request: NextRequest) {
     const newPro = await createProfessional(proPayload);
     const { passwordHash: _discard, ...safePro } = newPro;
 
+    // 5. Send verification email via AWS SES if email was provided
+    let emailSent = false;
+    let verificationLink: string | undefined;
+    if (rawEmail && verificationToken) {
+      const baseUrl = request.nextUrl.origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const emailResult = await sendVerificationEmail({
+        toEmail: rawEmail,
+        proName: newPro.name,
+        token: verificationToken,
+        baseUrl,
+      });
+      emailSent = emailResult.success;
+      verificationLink = emailResult.verificationLink;
+    }
+
+    const successMessage = rawEmail
+      ? 'Profissional cadastrado! Enviamos um e-mail de confirmação via AWS para validar seu endereço.'
+      : 'Profissional cadastrado com sucesso no Serviço Indicado!';
+
     return NextResponse.json(
       {
         success: true,
-        message: 'Profissional cadastrado com sucesso no Serviço Indicado!',
+        message: successMessage,
+        emailSent,
+        verificationLink,
         data: safePro,
       },
       { status: 201, headers: { ...corsHeaders, ...rateLimitHeaders } }

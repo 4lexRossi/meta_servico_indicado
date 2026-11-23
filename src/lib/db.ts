@@ -1,8 +1,8 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { 
-  DynamoDBDocumentClient, 
-  ScanCommand, 
-  GetCommand, 
+import {
+  DynamoDBDocumentClient,
+  ScanCommand,
+  GetCommand,
   PutCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
@@ -20,9 +20,9 @@ const TABLE_NAME = process.env.APP_DYNAMODB_TABLE_NAME || 'ServicoIndicado_Profe
 
 // Determine if valid AWS credentials are provided
 const hasAwsCredentials = Boolean(
-  accessKeyId && 
-  accessKeyId.trim() !== '' && 
-  secretAccessKey && 
+  accessKeyId &&
+  accessKeyId.trim() !== '' &&
+  secretAccessKey &&
   secretAccessKey.trim() !== ''
 );
 
@@ -50,7 +50,7 @@ if (hasAwsCredentials) {
 }
 
 // In-Memory fallback store (used when AWS credentials are not yet configured)
-let inMemoryDb: Professional[] = [...INITIAL_PROFESSIONALS];
+let inMemoryDb: Professional[] = [];
 
 // =============================================================================
 // 2. Data Access Operations
@@ -75,15 +75,6 @@ export async function getProfessionals(filters?: {
       });
       const response = await docClient.send(command);
       list = (response.Items as Professional[]) || [];
-
-      // If DynamoDB table is newly created and empty, seed it with the initial professionals
-      if (list.length === 0) {
-        console.log(`[DynamoDB] Tabela ${TABLE_NAME} vazia. Populando com os profissionais iniciais...`);
-        for (const pro of INITIAL_PROFESSIONALS) {
-          await docClient.send(new PutCommand({ TableName: TABLE_NAME, Item: pro }));
-        }
-        list = [...INITIAL_PROFESSIONALS];
-      }
     } catch (err) {
       console.warn('⚠️ Erro ao consultar o DynamoDB na AWS. Usando dados locais como contingência:', err);
       list = [...inMemoryDb];
@@ -166,7 +157,12 @@ export async function createProfessional(data: Partial<Professional>): Promise<P
     tags: data.tags && data.tags.length > 0 ? data.tags : ['Profissional Verificado'],
     bio: data.bio || 'Prestador de serviços cadastrado na rede do Serviço Indicado.',
     verified: true,
-    badges: ['Cadastro Verificado', 'Novo Indicado'],
+    badges: data.badges || (data.emailVerified ? ['Cadastro Verificado', 'Novo Indicado', 'E-mail Verificado'] : ['Cadastro Verificado', 'Novo Indicado']),
+    email: data.email,
+    emailVerified: data.emailVerified || false,
+    emailVerificationToken: data.emailVerificationToken,
+    emailVerificationExpires: data.emailVerificationExpires,
+    passwordHash: data.passwordHash,
     portfolio: data.portfolio || [],
     reviews: [
       { name: 'Equipe Serviço Indicado', stars: 5, text: 'Profissional recém-cadastrado na rede de indicações verificadas.' }
@@ -303,4 +299,81 @@ export async function getProfessionalByEmailOrPhone(identifier: string): Promise
   }
 
   return null;
+}
+
+/**
+ * Find professional by email verification token
+ */
+export async function getProfessionalByVerificationToken(token: string): Promise<Professional | null> {
+  const cleanToken = token?.trim();
+  if (!cleanToken) return null;
+
+  // Check in-memory list first
+  const foundInMemory = inMemoryDb.find(p => p.emailVerificationToken === cleanToken);
+  if (foundInMemory) return foundInMemory;
+
+  // If docClient is active, scan all pros
+  if (docClient) {
+    try {
+      const allPros = await getProfessionals();
+      const match = allPros.find(p => p.emailVerificationToken === cleanToken);
+      if (match) return match;
+    } catch (err) {
+      console.warn('⚠️ Erro ao buscar token de verificação no DynamoDB:', err);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Verify a professional's email address by token
+ */
+export async function verifyProfessionalEmail(token: string): Promise<{ success: boolean; pro?: Professional; error?: string }> {
+  const cleanToken = token?.trim();
+  if (!cleanToken) {
+    return { success: false, error: 'Token de verificação inválido ou ausente.' };
+  }
+
+  const pro = await getProfessionalByVerificationToken(cleanToken);
+  if (!pro) {
+    return { success: false, error: 'Link de verificação inválido ou expirado.' };
+  }
+
+  // Check expiration if set
+  if (pro.emailVerificationExpires) {
+    const expiresAt = new Date(pro.emailVerificationExpires).getTime();
+    if (!isNaN(expiresAt) && expiresAt < Date.now()) {
+      return { success: false, error: 'Este link de verificação expirou. Solicite um novo link no seu painel.' };
+    }
+  }
+
+  const currentBadges = Array.isArray(pro.badges) ? pro.badges : [];
+  const updatedBadges = currentBadges.includes('E-mail Verificado')
+    ? currentBadges
+    : [...currentBadges, 'E-mail Verificado'];
+
+  const updated = await updateProfessional(pro.id, {
+    emailVerified: true,
+    emailVerificationToken: undefined,
+    emailVerificationExpires: undefined,
+    badges: updatedBadges,
+  });
+
+  return { success: true, pro: updated || undefined };
+}
+
+/**
+ * Update verification token for an existing professional
+ */
+export async function setProfessionalVerificationToken(
+  id: string,
+  token: string,
+  expires: string
+): Promise<Professional | null> {
+  return await updateProfessional(id, {
+    emailVerified: false,
+    emailVerificationToken: token,
+    emailVerificationExpires: expires,
+  });
 }

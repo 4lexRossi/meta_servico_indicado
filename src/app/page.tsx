@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { CATEGORIES_DATA, REGIONS_LIST } from '@/data/categories';
-import { INITIAL_PROFESSIONALS } from '@/data/professionals';
 import { Professional, PillarId } from '@/data/types';
 
 // Layout
@@ -33,7 +32,7 @@ export default function HomePage() {
   const [selectedRegion, setSelectedRegion] = useState<string>('Todas as Regiões');
   const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [professionals, setProfessionals] = useState<Professional[]>(INITIAL_PROFESSIONALS);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
 
   // Modals
   const [selectedProForModal, setSelectedProForModal] = useState<Professional | null>(null);
@@ -230,7 +229,7 @@ export default function HomePage() {
         } catch (e) {
           console.warn('Erro ao salvar dados:', e);
         }
-        triggerToast(`🎉 Cadastro inicial realizado! Vamos personalizar seu perfil.`, 'success');
+        triggerToast(json.message || `🎉 Cadastro inicial realizado! Vamos personalizar seu perfil.`, 'success');
         setRegForm({ name: '', phone: '', email: '', password: '', region: 'Zona Sul', subcategory: 'encanamento', bio: '' });
         setIsRegisterModalOpen(false);
         setRegisterError(null);

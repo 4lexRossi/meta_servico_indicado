@@ -40,6 +40,9 @@ export interface Professional {
   avatar: string;
   phone: string;
   email?: string;
+  emailVerified?: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpires?: string;
   passwordHash?: string;
   priceEstimate: string;
   experienceYears: number;

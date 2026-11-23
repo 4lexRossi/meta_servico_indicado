@@ -171,10 +171,12 @@ export function ProsSection({
               <Search size={28} />
             </div>
             <h3 className="text-lg font-extrabold text-slate-900 mb-2">
-              Nenhum profissional encontrado
+              {hasActiveFilters ? 'Nenhum profissional encontrado' : 'Nenhum profissional cadastrado ainda'}
             </h3>
             <p className="text-sm text-slate-600 mb-6">
-              Tente remover alguns filtros ou buscar por outro termo ou região.
+              {hasActiveFilters
+                ? 'Tente remover alguns filtros ou buscar por outro termo ou região.'
+                : 'Seja o primeiro profissional a fazer parte da nossa rede de indicações verificadas!'}
             </p>
             <button
               onClick={onClearAll}

@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Professional, PillarId, PortfolioItem } from '@/data/types';
 import { CATEGORIES_DATA, REGIONS_LIST } from '@/data/categories';
-import { INITIAL_PROFESSIONALS } from '@/data/professionals';
 import { Toast } from '@/components/ui/Toast';
 import { formatPhone } from '@/lib/phone';
 
@@ -68,6 +67,7 @@ export default function ProfessionalDashboardPage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingPortfolio, setIsUploadingPortfolio] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -80,6 +80,28 @@ export default function ProfessionalDashboardPage() {
     setToastMessage(msg);
     setToastType(type);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleResendVerification = async () => {
+    if (!pro?.id) return;
+    setIsResendingVerification(true);
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: pro.id }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        triggerToast('📧 E-mail de confirmação reenviado via AWS SES!', 'success');
+      } else {
+        triggerToast(json.error || 'Erro ao reenviar e-mail de verificação.', 'normal');
+      }
+    } catch {
+      triggerToast('Erro de conexão ao reenviar e-mail.', 'normal');
+    } finally {
+      setIsResendingVerification(false);
+    }
   };
 
   // -------------------------------------------------------------
@@ -426,51 +448,7 @@ export default function ProfessionalDashboardPage() {
               </button>
             </form>
 
-            {/* Quick Demo Access */}
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">
-                Ou teste com um perfil demonstrativo:
-              </p>
-              <p className="text-[10px] text-slate-400 text-center mb-3">
-                (Clique para testar com senha padrão: <strong>123456</strong>)
-              </p>
-              <div className="space-y-2">
-                {INITIAL_PROFESSIONALS.slice(0, 3).map((demo) => (
-                  <button
-                    key={demo.id}
-                    type="button"
-                    onClick={() => {
-                      setLoginIdentifier(demo.phone);
-                      setLoginPassword('123456');
-                      handleLogin(undefined, demo.id);
-                    }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 hover:border-teal-400 hover:bg-teal-50/50 flex items-center gap-3 transition text-left group"
-                  >
-                    <Image
-                      src={demo.avatar}
-                      alt={demo.name}
-                      width={32}
-                      height={32}
-                      className="w-8 h-8 rounded-lg object-cover"
-                      unoptimized
-                    />
-                    <div className="flex-1 truncate">
-                      <div className="text-xs font-bold text-slate-800 group-hover:text-teal-700 truncate">
-                        {demo.name}
-                      </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        Tel: {demo.phone} &bull; Senha: 123456
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
-                      Entrar
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 text-center">
+            <div className="mt-8 text-center pt-4 border-t border-slate-100">
               <Link
                 href="/"
                 className="text-xs font-semibold text-slate-500 hover:text-teal-600"
@@ -586,6 +564,19 @@ export default function ProfessionalDashboardPage() {
                     <CheckCircle2 size={12} className="stroke-[2.5]" />
                     Verificado
                   </span>
+                  {(formData.email || pro.email) && (
+                    (formData.emailVerified ?? pro.emailVerified) ? (
+                      <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-300">
+                        <ShieldCheck size={12} className="text-emerald-700 stroke-[2.5]" />
+                        E-mail Verificado
+                      </span>
+                    ) : (
+                      <span className="bg-amber-100 text-amber-800 text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-amber-300">
+                        <AlertCircle size={11} className="text-amber-700" />
+                        E-mail Pendente
+                      </span>
+                    )
+                  )}
                 </div>
                 <p className="text-sm font-semibold text-teal-700 mt-0.5">
                   {formData.headline || pro.headline}
@@ -599,6 +590,17 @@ export default function ProfessionalDashboardPage() {
                     <Phone size={13} />
                     <span>WhatsApp: {formData.phone || pro.phone}</span>
                   </span>
+                  {(formData.email || pro.email) && (
+                    <span className="flex items-center gap-1">
+                      <Mail size={13} />
+                      <span>{formData.email || pro.email}</span>
+                      {(formData.emailVerified ?? pro.emailVerified) ? (
+                        <CheckCircle2 size={12} className="text-emerald-600 ml-0.5" />
+                      ) : (
+                        <span className="text-[10px] text-amber-600 font-semibold">(não verificado)</span>
+                      )}
+                    </span>
+                  )}
                   <span className="flex items-center gap-1">
                     <MapPin size={13} />
                     <span>{(formData.regions || pro.regions || []).join(', ')}</span>
@@ -855,9 +857,24 @@ export default function ProfessionalDashboardPage() {
 
               {/* Email */}
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  E-mail para Acesso ao Painel
-                </label>
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    E-mail para Acesso ao Painel
+                  </label>
+                  {(formData.email || pro.email) && (
+                    (formData.emailVerified ?? pro.emailVerified) ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-extrabold border border-emerald-200">
+                        <CheckCircle2 size={12} className="text-emerald-600 stroke-[2.5]" />
+                        E-mail Verificado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[11px] font-semibold border border-amber-200">
+                        <AlertCircle size={12} className="text-amber-600" />
+                        Aguardando Confirmação
+                      </span>
+                    )
+                  )}
+                </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Mail size={16} />
@@ -870,7 +887,19 @@ export default function ProfessionalDashboardPage() {
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">Usado para fazer login com telefone ou e-mail.</p>
+                <div className="flex items-center justify-between mt-1 text-[11px] flex-wrap gap-2">
+                  <p className="text-slate-400">Usado para fazer login com telefone ou e-mail.</p>
+                  {(formData.email || pro.email) && !(formData.emailVerified ?? pro.emailVerified) && (
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={isResendingVerification}
+                      className="font-bold text-teal-700 hover:text-teal-800 hover:underline transition disabled:opacity-50"
+                    >
+                      {isResendingVerification ? 'Enviando e-mail...' : 'Reenviar link de verificação (AWS SES)'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Nova Senha */}

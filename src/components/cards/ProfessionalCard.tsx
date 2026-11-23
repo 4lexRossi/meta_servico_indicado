@@ -93,6 +93,12 @@ export function ProfessionalCard({
         </p>
 
         <div className="flex flex-wrap gap-1.5 mb-4">
+          {pro.emailVerified && (
+            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+              <CheckCircle2 size={10} className="text-emerald-600 stroke-[3]" />
+              E-mail Verificado
+            </span>
+          )}
           {pro.tags.slice(0, 3).map((tag) => (
             <span
               key={tag}

@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { X, Star, CheckCircle2, Award, MessageCircle, Copy } from 'lucide-react';
+import { X, Star, CheckCircle2, Award, MessageCircle, Copy, ShieldCheck } from 'lucide-react';
 import { Professional } from '@/data/types';
 
 interface ProProfileModalProps {
@@ -56,6 +56,12 @@ export function ProProfileModal({ professional: pro, onClose, onCopyPhone }: Pro
                   <CheckCircle2 size={12} className="stroke-[2.5]" />
                   Verificado
                 </span>
+                {pro.emailVerified && (
+                  <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-300">
+                    <ShieldCheck size={12} className="text-emerald-700 stroke-[2.5]" />
+                    E-mail Verificado
+                  </span>
+                )}
               </div>
               <p className="text-sm font-semibold text-teal-700 mb-2">{pro.headline}</p>
               <div className="flex flex-wrap gap-3 text-xs text-slate-600">

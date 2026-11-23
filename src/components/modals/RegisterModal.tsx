@@ -35,11 +35,14 @@ export function RegisterModal({
 }: RegisterModalProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [captchaData, setCaptchaData] = useState<{ captchaToken: string; captchaAnswer: string }>({
     captchaToken: '',
     captchaAnswer: '',
   });
   const [localCaptchaError, setLocalCaptchaError] = useState<string | null>(null);
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhone(e.target.value);
@@ -57,6 +60,20 @@ export function RegisterModal({
     }
   };
 
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onFormChange('email', e.target.value);
+    if (emailError) setEmailError(null);
+  };
+
+  const handleEmailBlur = () => {
+    const val = (formState.email || '').trim();
+    if (val && !emailRegex.test(val)) {
+      setEmailError('Informe um e-mail válido (ex: seu@email.com).');
+    } else {
+      setEmailError(null);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -66,6 +83,13 @@ export function RegisterModal({
       return;
     }
     setPhoneError(null);
+
+    const emailVal = (formState.email || '').trim();
+    if (emailVal && !emailRegex.test(emailVal)) {
+      setEmailError('Informe um e-mail válido (ex: seu@email.com).');
+      return;
+    }
+    setEmailError(null);
 
     if (!captchaData.captchaAnswer.trim()) {
       setLocalCaptchaError('Por favor, responda à verificação de segurança antes de continuar.');
@@ -180,11 +204,21 @@ export function RegisterModal({
                 <input
                   type="email"
                   value={formState.email || ''}
-                  onChange={(e) => onFormChange('email', e.target.value)}
+                  onChange={handleEmailChange}
+                  onBlur={handleEmailBlur}
                   placeholder="seu@email.com"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm outline-none transition focus:ring-2 ${
+                    emailError
+                      ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/30 text-rose-900'
+                      : 'border-slate-300 focus:border-teal-500 focus:ring-teal-500/20'
+                  }`}
                 />
               </div>
+              {emailError ? (
+                <p className="text-[11px] text-rose-600 font-medium mt-1">{emailError}</p>
+              ) : (
+                <p className="text-[11px] text-slate-400 mt-1">Enviaremos um link via AWS para verificação.</p>
+              )}
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">

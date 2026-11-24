@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 import { Professional, PillarId, PortfolioItem } from '@/data/types';
 import { CATEGORIES_DATA, REGIONS_LIST } from '@/data/categories';
-import { INITIAL_PROFESSIONALS } from '@/data/professionals';
 import { Toast } from '@/components/ui/Toast';
+import { formatPhone } from '@/lib/phone';
 
 const TAG_SUGGESTIONS = [
   'Atendimento Rápido',
@@ -67,6 +67,7 @@ export default function ProfessionalDashboardPage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingPortfolio, setIsUploadingPortfolio] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -79,6 +80,28 @@ export default function ProfessionalDashboardPage() {
     setToastMessage(msg);
     setToastType(type);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleResendVerification = async () => {
+    if (!pro?.id) return;
+    setIsResendingVerification(true);
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: pro.id }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        triggerToast('📧 E-mail de confirmação reenviado via AWS SES!', 'success');
+      } else {
+        triggerToast(json.error || 'Erro ao reenviar e-mail de verificação.', 'normal');
+      }
+    } catch {
+      triggerToast('Erro de conexão ao reenviar e-mail.', 'normal');
+    } finally {
+      setIsResendingVerification(false);
+    }
   };
 
   // -------------------------------------------------------------
@@ -179,17 +202,24 @@ export default function ProfessionalDashboardPage() {
   };
 
   // -------------------------------------------------------------
-  // S3 File Upload Handlers
+  // S3 File Upload Handlers (Standard Web Limits: 2MB Avatar, 5MB Portfolio, Max 10 Photos)
   // -------------------------------------------------------------
-  const uploadToS3 = async (file: File): Promise<string> => {
+  const AVATAR_MAX_SIZE = 2 * 1024 * 1024; // 2 MB
+  const PORTFOLIO_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+  const MAX_PORTFOLIO_PHOTOS = 10;
+
+  const uploadToS3 = async (file: File, type: 'avatar' | 'portfolio' = 'portfolio'): Promise<string> => {
     const uploadForm = new FormData();
     uploadForm.append('file', file);
+    uploadForm.append('type', type);
     const res = await fetch('/api/upload', {
       method: 'POST',
       body: uploadForm,
     });
-    if (!res.ok) throw new Error('Falha no upload para o S3');
     const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || 'Falha no upload para o S3');
+    }
     return json.url;
   };
 
@@ -197,15 +227,22 @@ export default function ProfessionalDashboardPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > AVATAR_MAX_SIZE) {
+      triggerToast('A foto de perfil excede o limite máximo permitido de 2 MB.', 'normal');
+      e.target.value = '';
+      return;
+    }
+
     setIsUploadingAvatar(true);
     try {
-      const url = await uploadToS3(file);
+      const url = await uploadToS3(file, 'avatar');
       updateField('avatar', url);
       triggerToast('Foto de perfil atualizada no S3!', 'success');
-    } catch {
-      triggerToast('Erro ao enviar imagem. Verifique o arquivo e tente novamente.', 'normal');
+    } catch (err: any) {
+      triggerToast(err.message || 'Erro ao enviar imagem. Verifique o arquivo e tente novamente.', 'normal');
     } finally {
       setIsUploadingAvatar(false);
+      e.target.value = '';
     }
   };
 
@@ -213,16 +250,28 @@ export default function ProfessionalDashboardPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const currentList = (formData.portfolio || []) as PortfolioItem[];
+    if (currentList.length >= MAX_PORTFOLIO_PHOTOS) {
+      triggerToast(`Limite máximo de ${MAX_PORTFOLIO_PHOTOS} fotos atingido no portfólio.`, 'normal');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > PORTFOLIO_MAX_SIZE) {
+      triggerToast('A foto do portfólio excede o limite máximo permitido de 5 MB.', 'normal');
+      e.target.value = '';
+      return;
+    }
+
     setIsUploadingPortfolio(true);
     try {
-      const url = await uploadToS3(file);
+      const url = await uploadToS3(file, 'portfolio');
       const title = portfolioTitle.trim() || file.name.replace(/\.[^/.]+$/, '');
-      const currentList = (formData.portfolio || []) as PortfolioItem[];
       updateField('portfolio', [...currentList, { title, url }]);
       setPortfolioTitle('');
       triggerToast('Foto adicionada ao portfólio no S3!', 'success');
-    } catch {
-      triggerToast('Erro ao enviar imagem do portfólio.', 'normal');
+    } catch (err: any) {
+      triggerToast(err.message || 'Erro ao enviar imagem do portfólio.', 'normal');
     } finally {
       setIsUploadingPortfolio(false);
       e.target.value = '';
@@ -399,51 +448,7 @@ export default function ProfessionalDashboardPage() {
               </button>
             </form>
 
-            {/* Quick Demo Access */}
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">
-                Ou teste com um perfil demonstrativo:
-              </p>
-              <p className="text-[10px] text-slate-400 text-center mb-3">
-                (Clique para testar com senha padrão: <strong>123456</strong>)
-              </p>
-              <div className="space-y-2">
-                {INITIAL_PROFESSIONALS.slice(0, 3).map((demo) => (
-                  <button
-                    key={demo.id}
-                    type="button"
-                    onClick={() => {
-                      setLoginIdentifier(demo.phone);
-                      setLoginPassword('123456');
-                      handleLogin(undefined, demo.id);
-                    }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 hover:border-teal-400 hover:bg-teal-50/50 flex items-center gap-3 transition text-left group"
-                  >
-                    <Image
-                      src={demo.avatar}
-                      alt={demo.name}
-                      width={32}
-                      height={32}
-                      className="w-8 h-8 rounded-lg object-cover"
-                      unoptimized
-                    />
-                    <div className="flex-1 truncate">
-                      <div className="text-xs font-bold text-slate-800 group-hover:text-teal-700 truncate">
-                        {demo.name}
-                      </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        Tel: {demo.phone} &bull; Senha: 123456
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
-                      Entrar
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 text-center">
+            <div className="mt-8 text-center pt-4 border-t border-slate-100">
               <Link
                 href="/"
                 className="text-xs font-semibold text-slate-500 hover:text-teal-600"
@@ -559,6 +564,19 @@ export default function ProfessionalDashboardPage() {
                     <CheckCircle2 size={12} className="stroke-[2.5]" />
                     Verificado
                   </span>
+                  {(formData.email || pro.email) && (
+                    (formData.emailVerified ?? pro.emailVerified) ? (
+                      <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-300">
+                        <ShieldCheck size={12} className="text-emerald-700 stroke-[2.5]" />
+                        E-mail Verificado
+                      </span>
+                    ) : (
+                      <span className="bg-amber-100 text-amber-800 text-[11px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-amber-300">
+                        <AlertCircle size={11} className="text-amber-700" />
+                        E-mail Pendente
+                      </span>
+                    )
+                  )}
                 </div>
                 <p className="text-sm font-semibold text-teal-700 mt-0.5">
                   {formData.headline || pro.headline}
@@ -572,6 +590,17 @@ export default function ProfessionalDashboardPage() {
                     <Phone size={13} />
                     <span>WhatsApp: {formData.phone || pro.phone}</span>
                   </span>
+                  {(formData.email || pro.email) && (
+                    <span className="flex items-center gap-1">
+                      <Mail size={13} />
+                      <span>{formData.email || pro.email}</span>
+                      {(formData.emailVerified ?? pro.emailVerified) ? (
+                        <CheckCircle2 size={12} className="text-emerald-600 ml-0.5" />
+                      ) : (
+                        <span className="text-[10px] text-amber-600 font-semibold">(não verificado)</span>
+                      )}
+                    </span>
+                  )}
                   <span className="flex items-center gap-1">
                     <MapPin size={13} />
                     <span>{(formData.regions || pro.regions || []).join(', ')}</span>
@@ -816,19 +845,36 @@ export default function ProfessionalDashboardPage() {
                   WhatsApp para Contato Direto
                 </label>
                 <input
-                  type="text"
-                  value={formData.phone || ''}
-                  onChange={(e) => updateField('phone', e.target.value)}
+                  type="tel"
+                  maxLength={15}
+                  value={formatPhone(formData.phone || '')}
+                  onChange={(e) => updateField('phone', formatPhone(e.target.value))}
+                  placeholder="(00) 00000-0000"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">Os clientes clicam e abrem conversa diretamente com você.</p>
+                <p className="text-[11px] text-slate-400 mt-1">Apenas números. Formato: (00) 00000-0000</p>
               </div>
 
               {/* Email */}
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  E-mail para Acesso ao Painel
-                </label>
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    E-mail para Acesso ao Painel
+                  </label>
+                  {(formData.email || pro.email) && (
+                    (formData.emailVerified ?? pro.emailVerified) ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-extrabold border border-emerald-200">
+                        <CheckCircle2 size={12} className="text-emerald-600 stroke-[2.5]" />
+                        E-mail Verificado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[11px] font-semibold border border-amber-200">
+                        <AlertCircle size={12} className="text-amber-600" />
+                        Aguardando Confirmação
+                      </span>
+                    )
+                  )}
+                </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Mail size={16} />
@@ -841,7 +887,19 @@ export default function ProfessionalDashboardPage() {
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">Usado para fazer login com telefone ou e-mail.</p>
+                <div className="flex items-center justify-between mt-1 text-[11px] flex-wrap gap-2">
+                  <p className="text-slate-400">Usado para fazer login com telefone ou e-mail.</p>
+                  {(formData.email || pro.email) && !(formData.emailVerified ?? pro.emailVerified) && (
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={isResendingVerification}
+                      className="font-bold text-teal-700 hover:text-teal-800 hover:underline transition disabled:opacity-50"
+                    >
+                      {isResendingVerification ? 'Enviando e-mail...' : 'Reenviar link de verificação (AWS SES)'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Nova Senha */}
@@ -1212,7 +1270,7 @@ export default function ProfessionalDashboardPage() {
                     {isUploadingAvatar ? 'Enviando para o S3...' : 'Fazer Upload de Nova Foto'}
                   </button>
                   <p className="text-[11px] text-slate-400">
-                    Formatos aceitos: JPG, PNG, WEBP. Armazenamento Standard em nuvem AWS S3.
+                    Formatos aceitos: JPG, PNG, WEBP (máx. 2 MB). Armazenamento em nuvem AWS S3.
                   </p>
                 </div>
                 <input
@@ -1233,14 +1291,14 @@ export default function ProfessionalDashboardPage() {
                     Galeria de Trabalhos Realizados
                   </h4>
                   <p className="text-xs text-slate-500">
-                    {(formData.portfolio || []).length} de 10 fotos enviadas
+                    {(formData.portfolio || []).length} de {MAX_PORTFOLIO_PHOTOS} fotos enviadas (máx. 5 MB por foto)
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => portfolioInputRef.current?.click()}
-                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= 10}
+                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= MAX_PORTFOLIO_PHOTOS}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-xs transition disabled:opacity-50"
                 >
                   <Plus size={16} />
@@ -1255,12 +1313,13 @@ export default function ProfessionalDashboardPage() {
                   value={portfolioTitle}
                   onChange={(e) => setPortfolioTitle(e.target.value)}
                   placeholder="Legenda da próxima foto (ex: Reforma completa de banheiro, 2024)"
-                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm outline-none focus:border-teal-500"
+                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= MAX_PORTFOLIO_PHOTOS}
+                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm outline-none focus:border-teal-500 disabled:bg-slate-100 disabled:opacity-60"
                 />
                 <button
                   type="button"
                   onClick={() => portfolioInputRef.current?.click()}
-                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= 10}
+                  disabled={isUploadingPortfolio || (formData.portfolio || []).length >= MAX_PORTFOLIO_PHOTOS}
                   className="px-4 py-2.5 rounded-xl border border-teal-500 bg-teal-50 text-teal-700 font-bold text-xs transition hover:bg-teal-100 disabled:opacity-50"
                 >
                   {isUploadingPortfolio ? 'Enviando...' : 'Escolher Imagem'}

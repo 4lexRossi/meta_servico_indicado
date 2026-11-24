@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, UserPlus, AlertCircle, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { REGIONS_LIST } from '@/data/categories';
 import { CaptchaChallenge } from '@/components/ui/CaptchaChallenge';
+import { formatPhone, validatePhone } from '@/lib/phone';
 
 interface RegisterFormState {
   name: string;
@@ -33,14 +34,63 @@ export function RegisterModal({
   isSubmitting,
 }: RegisterModalProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [captchaData, setCaptchaData] = useState<{ captchaToken: string; captchaAnswer: string }>({
     captchaToken: '',
     captchaAnswer: '',
   });
   const [localCaptchaError, setLocalCaptchaError] = useState<string | null>(null);
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    onFormChange('phone', formatted);
+    if (phoneError) setPhoneError(null);
+  };
+
+  const handlePhoneBlur = () => {
+    if (!formState.phone) return;
+    const check = validatePhone(formState.phone);
+    if (!check.isValid) {
+      setPhoneError(check.error || 'Número de WhatsApp inválido.');
+    } else {
+      setPhoneError(null);
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onFormChange('email', e.target.value);
+    if (emailError) setEmailError(null);
+  };
+
+  const handleEmailBlur = () => {
+    const val = (formState.email || '').trim();
+    if (val && !emailRegex.test(val)) {
+      setEmailError('Informe um e-mail válido (ex: seu@email.com).');
+    } else {
+      setEmailError(null);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const phoneCheck = validatePhone(formState.phone);
+    if (!phoneCheck.isValid) {
+      setPhoneError(phoneCheck.error || 'Informe um número de WhatsApp válido no formato (00) 00000-0000.');
+      return;
+    }
+    setPhoneError(null);
+
+    const emailVal = (formState.email || '').trim();
+    if (emailVal && !emailRegex.test(emailVal)) {
+      setEmailError('Informe um e-mail válido (ex: seu@email.com).');
+      return;
+    }
+    setEmailError(null);
+
     if (!captchaData.captchaAnswer.trim()) {
       setLocalCaptchaError('Por favor, responda à verificação de segurança antes de continuar.');
       return;
@@ -103,16 +153,27 @@ export function RegisterModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                WhatsApp com DDD
+                WhatsApp com DDD <span className="text-teal-600">*</span>
               </label>
               <input
                 type="tel"
                 required
                 value={formState.phone}
-                onChange={(e) => onFormChange('phone', e.target.value)}
-                placeholder="(11) 98765-4321"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                onChange={handlePhoneChange}
+                onBlur={handlePhoneBlur}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+                className={`w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition focus:ring-2 ${
+                  phoneError
+                    ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/30 text-rose-900'
+                    : 'border-slate-300 focus:border-teal-500 focus:ring-teal-500/20'
+                }`}
               />
+              {phoneError ? (
+                <p className="text-[11px] text-rose-600 font-medium mt-1">{phoneError}</p>
+              ) : (
+                <p className="text-[11px] text-slate-400 mt-1">Apenas números. Formato: (00) 00000-0000</p>
+              )}
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
@@ -143,11 +204,21 @@ export function RegisterModal({
                 <input
                   type="email"
                   value={formState.email || ''}
-                  onChange={(e) => onFormChange('email', e.target.value)}
+                  onChange={handleEmailChange}
+                  onBlur={handleEmailBlur}
                   placeholder="seu@email.com"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                  className={`w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm outline-none transition focus:ring-2 ${
+                    emailError
+                      ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/30 text-rose-900'
+                      : 'border-slate-300 focus:border-teal-500 focus:ring-teal-500/20'
+                  }`}
                 />
               </div>
+              {emailError ? (
+                <p className="text-[11px] text-rose-600 font-medium mt-1">{emailError}</p>
+              ) : (
+                <p className="text-[11px] text-slate-400 mt-1">Enviaremos um link via AWS para verificação.</p>
+              )}
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">

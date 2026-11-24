@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProfessionalById, updateProfessional } from '@/lib/db';
+import { getProfessionalById, updateProfessional, getProfessionalByPhone, getProfessionalByEmail } from '@/lib/db';
 import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
 import { hashPassword } from '@/lib/auth';
 
@@ -65,6 +65,29 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await request.json();
     const patchPayload = { ...body };
+
+    // Check duplicate phone if being updated
+    if (patchPayload.phone) {
+      const existingPhone = await getProfessionalByPhone(patchPayload.phone);
+      if (existingPhone && existingPhone.id !== id) {
+        return NextResponse.json(
+          { success: false, error: 'Este número de WhatsApp já está cadastrado em outra conta.' },
+          { status: 409, headers: { ...corsHeaders, ...rateLimitHeaders } }
+        );
+      }
+    }
+
+    // Check duplicate email if being updated
+    if (patchPayload.email) {
+      const cleanEmail = String(patchPayload.email).trim().toLowerCase();
+      const existingEmail = await getProfessionalByEmail(cleanEmail);
+      if (existingEmail && existingEmail.id !== id) {
+        return NextResponse.json(
+          { success: false, error: 'Este endereço de e-mail já está cadastrado em outra conta.' },
+          { status: 409, headers: { ...corsHeaders, ...rateLimitHeaders } }
+        );
+      }
+    }
 
     if (patchPayload.newPassword) {
       patchPayload.passwordHash = hashPassword(String(patchPayload.newPassword).trim());

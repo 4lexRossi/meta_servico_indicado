@@ -7,7 +7,6 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { Professional } from '@/data/types';
-import { INITIAL_PROFESSIONALS } from '@/data/professionals';
 
 // =============================================================================
 // 1. AWS DynamoDB Client Setup
@@ -76,7 +75,7 @@ export async function getProfessionals(filters?: {
       const response = await docClient.send(command);
       list = (response.Items as Professional[]) || [];
     } catch (err) {
-      console.warn('⚠️ Erro ao consultar o DynamoDB na AWS. Usando dados locais como contingência:', err);
+      console.warn('⚠️ Erro ao efetuar consulta. Usando dados locais como contingência:', err);
       list = [...inMemoryDb];
     }
   } else {
@@ -129,7 +128,7 @@ export async function getProfessionalById(id: string): Promise<Professional | nu
         return response.Item as Professional;
       }
     } catch (err) {
-      console.warn(`⚠️ Erro ao buscar ID ${id} no DynamoDB:`, err);
+      console.warn(`⚠️ Erro ao buscar profissional com ID ${id}:`, err);
     }
   }
 
@@ -178,7 +177,7 @@ export async function createProfessional(data: Partial<Professional>): Promise<P
       await docClient.send(command);
       console.log(`[DynamoDB] Profissional ${newPro.name} salvo com sucesso na tabela ${TABLE_NAME}.`);
     } catch (err) {
-      console.error('⚠️ Falha ao salvar no DynamoDB:', err);
+      console.error('⚠️ Falha ao salvar:', err);
     }
   }
 
@@ -227,7 +226,7 @@ export async function updateProfessional(
         console.log(`[DynamoDB] Profissional ${id} atualizado com sucesso.`);
       }
     } catch (err) {
-      console.error('⚠️ Falha ao atualizar no DynamoDB:', err);
+      console.error('⚠️ Falha ao atualizar:', err);
     }
   }
 
@@ -258,7 +257,7 @@ export async function getProfessionalByPhone(phone: string): Promise<Professiona
       });
       if (match) return match;
     } catch (err) {
-      console.warn('⚠️ Erro ao buscar profissional por telefone no DynamoDB:', err);
+      console.warn('⚠️ Erro ao buscar profissional por telefone:', err);
     }
   }
 
@@ -287,7 +286,7 @@ export async function getProfessionalByEmail(email: string): Promise<Professiona
       );
       if (match) return match;
     } catch (err) {
-      console.warn('⚠️ Erro ao buscar profissional por email no DynamoDB:', err);
+      console.warn('⚠️ Erro ao buscar profissional por email:', err);
     }
   }
 
@@ -323,7 +322,7 @@ export async function getProfessionalByEmailOrPhone(identifier: string): Promise
       const match = allPros.find(matchesPro);
       if (match) return match;
     } catch (err) {
-      console.warn('⚠️ Erro ao buscar profissional por email/telefone no DynamoDB:', err);
+      console.warn('⚠️ Erro ao buscar profissional por email/telefone:', err);
     }
   }
 
@@ -348,7 +347,7 @@ export async function getProfessionalByVerificationToken(token: string): Promise
       const match = allPros.find(p => p.emailVerificationToken === cleanToken);
       if (match) return match;
     } catch (err) {
-      console.warn('⚠️ Erro ao buscar token de verificação no DynamoDB:', err);
+      console.warn('⚠️ Erro ao buscar token de verificação:', err);
     }
   }
 

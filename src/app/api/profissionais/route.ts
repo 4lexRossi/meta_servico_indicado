@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getProfessionals, createProfessional } from '@/lib/db';
+import { getProfessionals, createProfessional, getProfessionalByPhone, getProfessionalByEmail } from '@/lib/db';
 import { checkRateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
 import { verifyCaptcha } from '@/lib/captcha';
 import { hashPassword } from '@/lib/auth';
@@ -95,14 +95,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Email validation & Verification token setup
+    // 4. Duplicate Check: WhatsApp Phone Number
+    const existingProByPhone = await getProfessionalByPhone(body.phone);
+    if (existingProByPhone) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Já existe uma conta cadastrada com este número de WhatsApp. Faça login no seu painel ou utilize outro número.',
+        },
+        { status: 409, headers: { ...corsHeaders, ...rateLimitHeaders } }
+      );
+    }
+
+    // 5. Email validation, Duplicate Check & Verification token setup
     const rawEmail = body.email ? String(body.email).trim().toLowerCase() : undefined;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (rawEmail && !emailRegex.test(rawEmail)) {
-      return NextResponse.json(
-        { success: false, error: 'Por favor, informe um endereço de e-mail válido (ex: seu@email.com).' },
-        { status: 400, headers: { ...corsHeaders, ...rateLimitHeaders } }
-      );
+    if (rawEmail) {
+      if (!emailRegex.test(rawEmail)) {
+        return NextResponse.json(
+          { success: false, error: 'Por favor, informe um endereço de e-mail válido (ex: seu@email.com).' },
+          { status: 400, headers: { ...corsHeaders, ...rateLimitHeaders } }
+        );
+      }
+
+      // Duplicate Check: Email
+      const existingProByEmail = await getProfessionalByEmail(rawEmail);
+      if (existingProByEmail) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Já existe uma conta cadastrada com este endereço de e-mail. Faça login ou utilize outro e-mail.',
+          },
+          { status: 409, headers: { ...corsHeaders, ...rateLimitHeaders } }
+        );
+      }
     }
 
     let verificationToken: string | undefined;
